@@ -1,5 +1,6 @@
 package com.xin.graphdomainbackend.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
@@ -7,11 +8,13 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.config.MailSendConfig;
 import com.xin.graphdomainbackend.constant.EncryptConstant;
+import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.mapper.UserMapper;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.enums.UserRoleEnum;
+import com.xin.graphdomainbackend.model.vo.LoginUserVO;
 import com.xin.graphdomainbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
@@ -183,6 +186,68 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 lock.unlock();
             }
         }
+    }
+
+    /**
+     * 用户登录
+     * @param accountOrEmail 账号或邮箱
+     * @param userPassword 用户密码
+     * @param request http请求
+     * @return 脱敏后的用户信息
+     */
+    @Override
+    public LoginUserVO userLogin(String accountOrEmail, String userPassword, HttpServletRequest request) {
+        // 1.校验
+        if (StrUtil.hasBlank(accountOrEmail, userPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
+        }
+        if (userPassword.length() < 8) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "密码不能低于8位");
+        }
+
+        // 2.加密密码与后端对比，后端的密码是加密的
+        String encryptPassword = this.getEncryptPassword(userPassword);
+
+        // 3.查询用户信息
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("userPassword", encryptPassword)
+                .and(qw -> qw.eq("userAccount", accountOrEmail)
+                        .or().eq("email", accountOrEmail));
+        User user = this.baseMapper.selectOne(queryWrapper);
+        if (user == null) {
+            log.info("user login failed, accountOrEmail cannot match userPassword");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在");
+        }
+
+        // 4.记录用户状态
+        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, user);
+        LoginUserVO loginUserVO = new LoginUserVO();
+        BeanUtil.copyProperties(user, loginUserVO);
+        return loginUserVO;
+    }
+
+    /**
+     * 判断用户是否登录，获取当前登录用户信息
+     * @param request http请求
+     * @return 返回登录对象
+     */
+    @Override
+    public User getLoginUser(HttpServletRequest request) {
+
+        // 判断Session是否为空
+        Object attribute = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+        User currentUser = (User) attribute;
+        if (currentUser == null || currentUser.getId() == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+
+        // 查询用户信息
+        Long id = currentUser.getId();
+        currentUser = this.baseMapper.selectById(id);
+        if (currentUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        return currentUser;
     }
 }
 

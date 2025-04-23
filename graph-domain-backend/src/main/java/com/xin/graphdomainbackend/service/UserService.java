@@ -2,6 +2,7 @@ package com.xin.graphdomainbackend.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.xin.graphdomainbackend.model.entity.User;
+import com.xin.graphdomainbackend.model.vo.LoginUserVO;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -39,4 +40,19 @@ public interface UserService extends IService<User> {
      */
     long userRegister(String email, String userPassword, String checkPassword, String code);
 
+    /**
+     * 用户登录
+     * @param accountOrEmail 账号或邮箱
+     * @param userPassword 用户密码
+     * @param request http请求
+     * @return 脱敏后的用户信息
+     */
+    LoginUserVO userLogin(String accountOrEmail, String userPassword, HttpServletRequest request);
+
+    /**
+     * 判断用户是否登录，获取当前登录用户信息
+     * @param request http请求
+     * @return 返回登录对象
+     */
+    User getLoginUser(HttpServletRequest request);
 }
