@@ -21,7 +21,6 @@ public interface UserService extends IService<User> {
     String getEncryptPassword(String userPassword);
 
     /**
-<<<<<<< HEAD
      * 发送验证码
      * @param email 邮箱
      * @param type 验证码类型
@@ -31,8 +30,6 @@ public interface UserService extends IService<User> {
     boolean sendEmailCode(String email, String type, HttpServletRequest request);
 
     /**
-=======
->>>>>>> 3c4d9bdfcda0ce38735af2264f321ce95210a592
      * 用户注册
      * @param email 邮箱
      * @param userPassword 用户密码
