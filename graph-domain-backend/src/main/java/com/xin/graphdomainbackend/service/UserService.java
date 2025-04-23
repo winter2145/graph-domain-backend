@@ -3,11 +3,9 @@ package com.xin.graphdomainbackend.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.xin.graphdomainbackend.model.entity.User;
 
-<<<<<<< HEAD
 import javax.servlet.http.HttpServletRequest;
 
-=======
->>>>>>> 3c4d9bdfcda0ce38735af2264f321ce95210a592
+
 /**
 * @author xin
 * @description 针对表【user(用户)】的数据库操作Service
