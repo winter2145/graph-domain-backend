@@ -3,8 +3,11 @@ package com.xin.graphdomainbackend.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.xin.graphdomainbackend.model.entity.User;
 
+<<<<<<< HEAD
 import javax.servlet.http.HttpServletRequest;
 
+=======
+>>>>>>> 3c4d9bdfcda0ce38735af2264f321ce95210a592
 /**
 * @author xin
 * @description 针对表【user(用户)】的数据库操作Service
@@ -20,6 +23,7 @@ public interface UserService extends IService<User> {
     String getEncryptPassword(String userPassword);
 
     /**
+<<<<<<< HEAD
      * 发送验证码
      * @param email 邮箱
      * @param type 验证码类型
@@ -29,6 +33,8 @@ public interface UserService extends IService<User> {
     boolean sendEmailCode(String email, String type, HttpServletRequest request);
 
     /**
+=======
+>>>>>>> 3c4d9bdfcda0ce38735af2264f321ce95210a592
      * 用户注册
      * @param email 邮箱
      * @param userPassword 用户密码

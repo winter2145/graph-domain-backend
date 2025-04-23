@@ -1,5 +1,6 @@
 package com.xin.graphdomainbackend.service.impl;
 
+<<<<<<< HEAD
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
@@ -23,12 +24,23 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.concurrent.TimeUnit;
 
+=======
+import cn.hutool.crypto.SecureUtil;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.xin.graphdomainbackend.constant.EncryptConstant;
+import com.xin.graphdomainbackend.mapper.UserMapper;
+import com.xin.graphdomainbackend.model.entity.User;
+import com.xin.graphdomainbackend.service.UserService;
+import org.springframework.stereotype.Service;
+
+>>>>>>> 3c4d9bdfcda0ce38735af2264f321ce95210a592
 /**
 * @author Administrator
 * @description 针对表【user(用户)】的数据库操作Service实现
 * @createDate 2025-04-20 19:48:52
 */
 @Service
+<<<<<<< HEAD
 @Slf4j
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     implements UserService {
@@ -42,6 +54,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Resource
     private MailSendConfig emailSendUtil;
 
+=======
+public class UserServiceImpl extends ServiceImpl<UserMapper, User>
+    implements UserService {
+
+>>>>>>> 3c4d9bdfcda0ce38735af2264f321ce95210a592
     /**
      * 获取加密后的密码
      * @param userPassword 用户密码
@@ -53,6 +70,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
+<<<<<<< HEAD
      * 发送验证码
      * @param email 邮箱
      * @param type 验证码类型
@@ -89,6 +107,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
+=======
+>>>>>>> 3c4d9bdfcda0ce38735af2264f321ce95210a592
      * 用户注册
      * @param email       邮箱
      * @param userPassword 用户密码
@@ -98,6 +118,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     @Override
     public long userRegister(String email, String userPassword, String checkPassword, String code) {
+<<<<<<< HEAD
         // 1.校验参数
         if(StrUtil.hasBlank(email, userPassword, checkPassword, code)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
@@ -182,6 +203,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             }
         }
 
+=======
+        return 0;
+>>>>>>> 3c4d9bdfcda0ce38735af2264f321ce95210a592
     }
 }
 
