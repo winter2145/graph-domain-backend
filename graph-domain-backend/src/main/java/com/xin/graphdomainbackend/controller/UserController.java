@@ -24,7 +24,6 @@ public class UserController {
     @Resource
     private UserService userService;
 
-
     /**
      * 获取邮箱验证码
      */
@@ -39,11 +38,27 @@ public class UserController {
 
         return ResultUtils.success(result);
     }
+
     /**
      * 用户注册
      */
     @PostMapping("/register")
     public BaseResponse<Long> userRegister(@RequestBody UserRegisterRequest registerRequest) {
+        ThrowUtils.throwIf(registerRequest == null, ErrorCode.PARAMS_ERROR);
+        String email = registerRequest.getEmail();
+        String userPassword = registerRequest.getUserPassword();
+        String code = registerRequest.getCode();
+        String checkPassword = registerRequest.getCheckPassword();
+        long result = userService.userRegister(email, userPassword, checkPassword, code);
+
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 用户登录
+     */
+    @PostMapping("/login")
+    public BaseResponse<Long> userLogin(@RequestBody UserRegisterRequest registerRequest) {
         ThrowUtils.throwIf(registerRequest == null, ErrorCode.PARAMS_ERROR);
         String email = registerRequest.getEmail();
         String userPassword = registerRequest.getUserPassword();
