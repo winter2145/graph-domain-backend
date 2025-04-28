@@ -1,9 +1,11 @@
 package com.xin.graphdomainbackend.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.config.MailSendConfig;
@@ -12,9 +14,12 @@ import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.mapper.UserMapper;
+import com.xin.graphdomainbackend.model.dto.user.UserQueryRequest;
+import com.xin.graphdomainbackend.model.dto.user.UserUpdateRequest;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.enums.UserRoleEnum;
 import com.xin.graphdomainbackend.model.vo.LoginUserVO;
+import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
@@ -24,7 +29,10 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
 * @author Administrator
@@ -129,9 +137,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 利用 redisson 构造分布式锁 key
         String lockKey = String.format("email:register:lock:%s", email);
         RLock lock = redissonClient.getLock(lockKey);
-        boolean isLock = false;
         try {
-            isLock = lock.tryLock(5, TimeUnit.SECONDS);
+            boolean isLock = lock.tryLock(5, TimeUnit.SECONDS);
             // 尝试获取锁，最多等5秒，利用看门狗机制 自动续约，直到锁释放
             // isLock = lock.tryLock(5, -1, TimeUnit.SECONDS);
             if (!isLock) {
@@ -248,6 +255,150 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
         return currentUser;
+    }
+
+    /**
+     * 验证用户输入的验证码是否正确
+     * @param userInputCaptcha 用户输入的验证码
+     * @param serverIfCode 服务器端存储的加密后的验证码
+     * @return 如果验证成功返回true，否则返回false
+     */
+    @Override
+    public boolean validateCaptcha(String userInputCaptcha, String serverIfCode) {
+        if (userInputCaptcha != null && serverIfCode != null) {
+            // 使用Hutool对用户输入的验证码进行MD5加密
+            String encryptedVerifyCode = DigestUtil.md5Hex(userInputCaptcha);
+            if(encryptedVerifyCode.equals(serverIfCode)){
+                return true;
+            }
+        }
+        throw new BusinessException(ErrorCode.PARAMS_ERROR, "验证码错误");
+    }
+
+    /**
+     * 获得脱敏后的登录用户信息
+     * @param currentUser 当前用户登录对象
+     * @return 脱敏后的登录用户信息
+     */
+    @Override
+    public LoginUserVO getLoginUserVO(User currentUser) {
+        LoginUserVO loginUserVO = new LoginUserVO();
+        if (currentUser != null) {
+            BeanUtil.copyProperties(currentUser, loginUserVO);
+        }
+        return loginUserVO;
+    }
+
+    /**
+     * 获取脱敏后的单个用户信息
+     * @param user 用户对象
+     * @return 脱敏后的用户
+     */
+    @Override
+    public UserVO getUserVO(User user) {
+        if (user == null) {
+            return null;
+        }
+        UserVO userVO = new UserVO();
+        BeanUtil.copyProperties(user, userVO);
+        return userVO;
+    }
+
+    /**
+     * 获取脱敏后的多个用户信息
+     * @param userList 用户列表
+     * @return 脱敏后的用户列表
+     */
+    @Override
+    public List<UserVO> getUserVOList(List<User> userList) {
+        if (userList.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return userList.stream()
+                .map(this::getUserVO)
+                //.map(user -> this.getUserVO(user))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 用户退出
+     * @param request http请求
+     * @return 如果退出成功返回true，否则返回false
+     */
+    @Override
+    public boolean userLogout(HttpServletRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户未登录");
+        }
+        request.removeAttribute(UserConstant.USER_LOGIN_STATE);
+        return true;
+    }
+
+    /**
+     * 获取用户的查询条件构造器
+     * @param userQueryRequest 用户查询请求对象，包含筛选条件
+     * @return MyBatis-Plus 提供的查询构造器 QueryWrapper，用于数据库查询条件构建
+     */
+    @Override
+    public QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+
+        if (userQueryRequest == null) {
+            return queryWrapper;
+        }
+
+        // 获取字段
+        Long id = userQueryRequest.getId();
+        String userName = userQueryRequest.getUserName();
+        String userAccount = userQueryRequest.getUserAccount();
+        String userProfile = userQueryRequest.getUserProfile();
+        String userRole = userQueryRequest.getUserRole();
+        String sortField = userQueryRequest.getSortField();
+        String sortOrder = userQueryRequest.getSortOrder();
+
+        queryWrapper.eq(ObjectUtil.isNotNull(id), "id", id);
+        queryWrapper.eq(StrUtil.isNotBlank(userRole), "userRole", userRole);
+        queryWrapper.like(StrUtil.isNotBlank(userName), "userName", userName);
+        queryWrapper.like(StrUtil.isNotBlank(userAccount), "userAccount", userAccount);
+        queryWrapper.like(StrUtil.isNotBlank(userProfile), "userProfile", userProfile);
+        queryWrapper.orderBy(StrUtil.isNotEmpty(sortField), sortOrder.equals("ascend"), sortField);
+
+        return queryWrapper;
+
+    }
+
+    /**
+     * 更新用户信息（包括权限校验和字段保护）
+     * @param userUpdateRequest 用户更新请求对象，包含需要更新的信息
+     * @param request 当前 HTTP 请求，用于获取登录用户信息
+     * @return 更新是否成功
+     */
+    @Override
+    public boolean updateUser(UserUpdateRequest userUpdateRequest, HttpServletRequest request) {
+        // 获取用户登录信息
+        User loginUser = this.getLoginUser(request);
+        boolean isAdmin = UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole());
+        boolean isMyself = userUpdateRequest.getId().equals(loginUser.getId());
+
+        // 不是管理员,不能更改他人
+        if (!isAdmin && !isMyself) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "当前用户，无修改他人的权限");
+        }
+
+        // 非管理员不能修改 userRole 字段
+        if (!isAdmin) {
+            userUpdateRequest.setUserRole(UserConstant.DEFAULT_ROLE);
+        }
+
+        User userToUpdate = new User();
+        BeanUtil.copyProperties(userUpdateRequest, userToUpdate);
+
+        boolean result = this.updateById(userToUpdate);
+        if (!result) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新失败");
+        }
+
+        return true;
     }
 }
 
