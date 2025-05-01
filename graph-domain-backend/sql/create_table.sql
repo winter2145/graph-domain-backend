@@ -56,3 +56,27 @@ CREATE TABLE picture
     viewCount     bigint   DEFAULT 0                 NOT NULL COMMENT '浏览量'
 )
     COMMENT '图片' COLLATE = utf8mb4_unicode_ci;
+
+CREATE INDEX idx_category
+    ON picture (category);
+
+CREATE INDEX idx_introduction
+    ON picture (introduction);
+
+CREATE INDEX idx_name
+    ON picture (name);
+
+CREATE INDEX idx_reviewStatus
+    ON picture (reviewStatus);
+
+CREATE INDEX idx_spaceId
+    ON picture (spaceId);
+
+CREATE INDEX idx_tags
+    ON picture (tags);
+
+CREATE INDEX idx_userId
+    ON picture (userId);
+
+CREATE INDEX idx_viewCount
+    ON picture (viewCount);

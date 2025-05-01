@@ -217,13 +217,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
         // 3.查询用户信息
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("userPassword", encryptPassword)
-                .and(qw -> qw.eq("userAccount", accountOrEmail)
-                        .or().eq("email", accountOrEmail));
+        // queryWrapper.eq("userPassword", encryptPassword)
+        //         .and(qw -> qw.eq("userAccount", accountOrEmail)
+        //                 .or().eq("email", accountOrEmail));
+
+        queryWrapper.eq("userAccount", accountOrEmail).or().eq("email", accountOrEmail);
+
         User user = this.baseMapper.selectOne(queryWrapper);
         if (user == null) {
             log.info("user login failed, accountOrEmail cannot match userPassword");
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在");
+        }
+        if (!user.getUserPassword().equals(encryptPassword)) {
+            log.info("密码错误，用户: {}", accountOrEmail);
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
         }
 
         // 4.记录用户状态
