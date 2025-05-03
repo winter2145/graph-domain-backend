@@ -111,4 +111,11 @@ public interface UserService extends IService<User> {
      * @return 更新是否成功
      */
     boolean updateUser(UserUpdateRequest userUpdateRequest, HttpServletRequest request);
+
+    /**
+     * 判断用户是否为管理员
+     * @param loginUser 登录用户
+     * @return true 为管理员
+     */
+    boolean isAdmin(User loginUser);
 }

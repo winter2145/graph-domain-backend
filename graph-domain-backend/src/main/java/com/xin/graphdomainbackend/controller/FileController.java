@@ -29,8 +29,6 @@ public class FileController {
 
     /**
      * 测试文件上传
-     * @param multipartFile
-     * @return
      */
     @PostMapping("/test/upload")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
@@ -59,10 +57,7 @@ public class FileController {
     }
 
     /**
-     * 测试文件上传
-     * @param filepath
-     * @param response
-     * @throws IOException
+     * 测试文件下载
      */
     @GetMapping("/test/download")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)

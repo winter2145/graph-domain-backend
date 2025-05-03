@@ -78,10 +78,24 @@
             <artifactId>cos_api</artifactId>
             <version>5.6.227</version>
         </dependency>
+        <!-- configuration 加不加都可以，加上了可以解决配置类的提醒-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
             <optional>true</optional>
+        </dependency>
+        <!-- elasticsearch-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
+        </dependency>
+
+
+        <!-- Nacos 配置中心 -->
+        <dependency>
+            <groupId>com.alibaba.boot</groupId>
+            <artifactId>nacos-config-spring-boot-starter</artifactId>
+            <version>0.2.12</version>
         </dependency>
 
         <!-- Spring AOP -->
@@ -95,6 +109,7 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
 
     <dependencyManagement>
