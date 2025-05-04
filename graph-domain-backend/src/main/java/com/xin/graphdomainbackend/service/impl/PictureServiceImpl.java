@@ -1,31 +1,42 @@
 package com.xin.graphdomainbackend.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.xin.graphdomainbackend.esdao.EsPictureDao;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.manager.FileManager;
 import com.xin.graphdomainbackend.mapper.PictureMapper;
 import com.xin.graphdomainbackend.model.dto.file.UploadPictureResult;
+import com.xin.graphdomainbackend.model.dto.picture.PictureEditRequest;
 import com.xin.graphdomainbackend.model.dto.picture.PictureQueryRequest;
 import com.xin.graphdomainbackend.model.dto.picture.PictureUploadRequest;
 import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.User;
+import com.xin.graphdomainbackend.model.entity.es.EsPicture;
 import com.xin.graphdomainbackend.model.vo.PictureVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.service.PictureService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
 * @author Administrator
@@ -33,6 +44,7 @@ import java.util.List;
 * @createDate 2025-04-30 19:13:10
 */
 @Service
+@Slf4j
 public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     implements PictureService {
 
@@ -41,6 +53,27 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private EsPictureDao esPictureDao;
+
+    @Override
+    public void validPicture(Picture picture) {
+        ThrowUtils.throwIf(picture == null, ErrorCode.PARAMS_ERROR);
+        // 从对象中取值
+        Long id = picture.getId();
+        String url = picture.getUrl();
+        String introduction = picture.getIntroduction();
+        // 修改数据时，id 不能为空，有参数则校验
+        ThrowUtils.throwIf(ObjUtil.isNull(id), ErrorCode.PARAMS_ERROR, "id不能为空");
+        // 如果传递了 url，才校验
+        if (StrUtil.isNotBlank(url)) {
+            ThrowUtils.throwIf(url.length() > 1024, ErrorCode.PARAMS_ERROR, "url 过长");
+        }
+        if (StrUtil.isNotBlank(introduction)) {
+            ThrowUtils.throwIf(introduction.length() > 800, ErrorCode.PARAMS_ERROR, "简介过长");
+        }
+    }
 
     @Override
     public PictureVO uploadPicture(MultipartFile multipartFile, PictureUploadRequest pictureUploadRequest, User loginUser) {
@@ -142,7 +175,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
         // JSON 数组查询
         if (CollUtil.isNotEmpty(tags)) {
-            /* and (tag like "%\"Java\"%" and like "%\"Python\"%") */
+            /* and (tags like %"Java"% and like %"Python"%) */
             for (String tag : tags) {
                 queryWrapper.like("tags", "\"" + tag + "\"");
             }
@@ -153,7 +186,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     }
 
     @Override
-    public PictureVO getPictureVO(Picture picture, HttpServletRequest request) {
+    public PictureVO getPictureVO(Picture picture) {
         if (picture == null) {
             return null;
         }
@@ -173,6 +206,112 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     }
 
     @Override
+    public List<PictureVO> getPictureVOList(List<Picture> pictureList) {
+        if (pictureList.isEmpty()) {
+            return new ArrayList<>();
+        } else {
+            return pictureList
+                    .stream()
+                    .map(this::getPictureVO)
+                    .collect(Collectors.toList());
+        }
+    }
+
+    @Override
+    public Page<PictureVO> getPictureVOByPage(PictureQueryRequest pictureQueryRequest) {
+        ThrowUtils.throwIf(pictureQueryRequest == null, ErrorCode.PARAMS_ERROR);
+
+        long current = pictureQueryRequest.getCurrent(); // 当前页号
+        long pageSize = pictureQueryRequest.getPageSize(); //每页大
+        QueryWrapper<Picture> queryWrapper = this.getQueryWrapper(pictureQueryRequest);
+
+        // MyBatis-Plus分页查数据库（带查询条件）,得到原始Picture列表（含敏感数据）
+        Page<Picture> page = this.page(new Page<>(current, pageSize), queryWrapper);
+
+        // 创建一个与Picture一样大的分页PictureVO
+        long total = page.getTotal();
+        Page<PictureVO> pictureVOPage = new Page<>(current, pageSize, total);
+
+        List<Picture> records = page.getRecords();
+        // 转成 PictureVO 列表
+        List<PictureVO> pictureVOList = this.getPictureVOList(records);
+
+        pictureVOPage.setRecords(pictureVOList);
+
+        return pictureVOPage;
+    }
+
+    @Override
+    public Page<Picture> getPictureByPage(PictureQueryRequest pictureQueryRequest) {
+
+        long current = pictureQueryRequest.getCurrent(); // 当前页号
+        long pageSize = pictureQueryRequest.getPageSize(); //每页大
+        QueryWrapper<Picture> queryWrapper = this.getQueryWrapper(pictureQueryRequest);
+
+        Page<Picture> picturePage = this.page(new Page<>(current, pageSize), queryWrapper);
+
+        return picturePage;
+    }
+
+    @Override
+    public boolean editPicture(PictureEditRequest pictureEditRequest, HttpServletRequest request) {
+
+        // 判断数据库中是否存在
+        long id = pictureEditRequest.getId();
+        Picture oldPicture = this.getById(id);
+        ThrowUtils.throwIf(oldPicture == null, ErrorCode.NOT_FOUND_ERROR);
+
+        // 保留旧的数据
+        Picture picture = new Picture();
+        BeanUtil.copyProperties(oldPicture, picture);
+        // 只覆盖PictureEditRequest中出现的字段
+        // Hutool的BeanUtil.copyProperties默认会覆盖同名字段（包括null），不会影响Picture中没有的字段
+        BeanUtil.copyProperties(pictureEditRequest, picture);
+        // tags字段类型不同，单独处理
+        if (pictureEditRequest.getTags() != null) {
+            picture.setTags(JSONUtil.toJsonStr(pictureEditRequest.getTags()));
+        } else if (pictureEditRequest.getTags() == null) {
+            picture.setTags(null); // 明确置空
+        }
+        // 设置编辑时间
+        picture.setEditTime(new Date());
+        // 校验数据
+        this.validPicture(picture);
+
+        // 数据库更新
+        boolean res = this.updateById(picture);
+
+        ThrowUtils.throwIf(!res, ErrorCode.OPERATION_ERROR);
+
+        // 同步更新 ES 数据
+        try {
+            // 先查询 ES 中是否存在该数据
+            Optional<EsPicture> esOptional = esPictureDao.findById(id);
+            EsPicture esPicture;
+            if (esOptional.isPresent()) {
+                // 如果存在，获取现有数据
+                esPicture = esOptional.get();
+                // 只更新需要修改的字段
+                esPicture.setName(picture.getName());
+                esPicture.setIntroduction(picture.getIntroduction());
+                esPicture.setCategory(picture.getCategory());
+                esPicture.setTags(picture.getTags());
+                esPicture.setEditTime(picture.getEditTime());
+            } else {
+                // 如果不存在，创建新的 ES 文档
+                esPicture = new EsPicture();
+                BeanUtil.copyProperties(picture, esPicture);
+            }
+            // 保存或更新到 ES
+            esPictureDao.save(esPicture);
+        } catch (Exception e) {
+            log.error("Failed to sync picture to ES during edit, pictureId: {}", picture.getId(), e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
+        }
+        return res;
+    }
+
+    @Override
     public boolean updatePicture(Picture picture) {
         // 更新数据库
         boolean success = this.updateById(picture);
@@ -181,7 +320,33 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
 
         // 同步更新 ES 数据
-        return false;
+        try {
+            Optional<EsPicture> esPictureOptional = esPictureDao.findById(picture.getId());
+            EsPicture esPicture;
+            if (esPictureOptional.isPresent()) {
+                esPicture = esPictureOptional.get();
+                esPicture.setName(picture.getName());
+                esPicture.setIntroduction(picture.getIntroduction());
+                esPicture.setCategory(picture.getCategory());
+                esPicture.setTags(picture.getTags());
+                esPicture.setEditTime(picture.getEditTime());
+                esPicture.setReviewStatus(picture.getReviewStatus());
+                esPicture.setReviewMessage(picture.getReviewMessage());
+            } else {
+                esPicture = new EsPicture();
+                BeanUtil.copyProperties(picture, esPicture);
+            }
+            esPictureDao.save(esPicture);
+            return true;
+        } catch (Exception e) {
+            log.error("同步ES数据失败, pictureId: {}", picture.getId());
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步ES失败");
+        }
+
+    }
+
+    @Override
+    public void deletePicture(Long id, User loginUser) {
 
     }
 
