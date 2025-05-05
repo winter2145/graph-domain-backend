@@ -10,6 +10,7 @@ import com.xin.graphdomainbackend.model.vo.UserVO;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -118,4 +119,12 @@ public interface UserService extends IService<User> {
      * @return true 为管理员
      */
     boolean isAdmin(User loginUser);
+
+    /**
+     * 生成一个算术类型的图形验证码，并将答案进行加密存储到 Redis。
+     * 验证码为带有干扰的图片，内容是简单的加减乘法表达式。
+     *
+     * @return 包含 base64 编码的验证码图片和加密后的答案 key 的 Map。
+     */
+    Map<String, String> getCaptcha();
 }

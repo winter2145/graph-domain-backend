@@ -48,6 +48,22 @@ public interface PictureService extends IService<Picture> {
     QueryWrapper<Picture> getQueryWrapper(PictureQueryRequest pictureQueryRequest);
 
     /**
+     * 更新图片信息
+     *
+     * @param picture   图片实体
+     * @return          是否更新成功
+     */
+    boolean updatePicture(Picture picture);
+
+    /**
+     * 根据图片 ID 删除指定图片（仅限管理员或本人）。
+     *
+     * @param id 图片主键 ID
+     * @param loginUser 当前登录用户
+     */
+    void deletePicture(Long id, User loginUser);
+
+    /**
      * 获取图片视图对象
      *
      * @param picture   图片实体
@@ -71,17 +87,21 @@ public interface PictureService extends IService<Picture> {
      */
     Page<PictureVO> getPictureVOByPage(PictureQueryRequest pictureQueryRequest);
 
+
     /**
-     * 更新图片信息
+     * 分页获取图片列表，根据查询条件筛选。
      *
-     * @param picture   图片实体
-     * @return          是否更新成功
+     * @param pictureQueryRequest 图片查询请求参数
+     * @return 分页结果，包含图片列表
      */
-    boolean updatePicture(Picture picture);
-
-    void deletePicture(Long id, User loginUser);
-
     Page<Picture> getPictureByPage(PictureQueryRequest pictureQueryRequest);
 
+    /**
+     * 编辑图片信息（如标题、描述等）。
+     *
+     * @param pictureEditRequest 图片编辑请求参数
+     * @param request HTTP 请求对象，用于鉴权或获取用户信息
+     * @return 是否编辑成功
+     */
     boolean editPicture(PictureEditRequest pictureEditRequest, HttpServletRequest request);
 }

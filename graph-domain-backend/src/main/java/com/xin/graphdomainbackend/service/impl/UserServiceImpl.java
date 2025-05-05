@@ -1,5 +1,8 @@
 package com.xin.graphdomainbackend.service.impl;
 
+import cn.hutool.captcha.CaptchaUtil;
+import cn.hutool.captcha.ShearCaptcha;
+import cn.hutool.captcha.generator.CodeGenerator;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.RandomUtil;
@@ -29,8 +32,9 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -417,6 +421,78 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     public boolean isAdmin(User loginUser) {
         return loginUser != null && loginUser.getUserRole().equals(UserConstant.ADMIN_ROLE);
     }
+
+    @Override
+    public Map<String, String> getCaptcha() {
+        Random random = new Random();
+        int a = random.nextInt(20);
+        int b = random.nextInt(10);
+        char op;
+        int answer;
+
+        // 生成表达式
+        switch (random.nextInt(3)) {
+            case 0:
+                op = '+';
+                answer = a + b;
+                break;
+            case 1:
+                op = '-';
+                if (a < b) {
+                    int temp = a; a = b; b = temp;
+                }
+                answer = a - b;
+                break;
+            case 2:
+                op = '*';
+                answer = a * b;
+                break;
+            default:
+                op = '+';
+                answer = a + b;
+        }
+
+        String expression = a + " " + op + " " + b + " = ";
+
+        // 创建干扰验证码（Shear类型，带扭曲）
+        ShearCaptcha shearCaptcha = CaptchaUtil.createShearCaptcha(160, 60, 4, 5);
+        // 设置自定义表达式文本
+        shearCaptcha.setGenerator(new CodeGenerator() {
+            @Override
+            public String generate() {
+                return expression;
+            }
+
+            @Override
+            public boolean verify(String code, String input) {
+                return code.equals(input);
+            }
+        });
+        shearCaptcha.createCode();
+
+        // 将图片转为 Base64
+        String base64Captcha;
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            shearCaptcha.write(outputStream);
+            base64Captcha = Base64.getEncoder().encodeToString(outputStream.toByteArray());
+        } catch (IOException e) {
+            throw new RuntimeException("生成验证码失败", e);
+        }
+
+        // 加密答案
+        String answerStr = String.valueOf(answer);
+        String encryptedCaptcha = DigestUtil.md5Hex(answerStr);
+
+        // 存入 Redis，过期时间 5 分钟
+        stringRedisTemplate.opsForValue().set("captcha:" + encryptedCaptcha, answerStr, 300, TimeUnit.SECONDS);
+
+        // 封装返回结果
+        Map<String, String> result = new HashMap<>();
+        result.put("base64Captcha", base64Captcha);
+        result.put("encryptedCaptcha", encryptedCaptcha);
+        return result;
+    }
+
 }
 
 

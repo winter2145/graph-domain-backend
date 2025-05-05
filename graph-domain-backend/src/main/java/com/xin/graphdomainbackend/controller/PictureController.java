@@ -55,6 +55,9 @@ public class PictureController {
         return ResultUtils.success(pictureVO);
     }
 
+    /**
+     * 删除图片
+     */
     @PostMapping("/delete")
     public BaseResponse<Boolean> deletePicture(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(request == null, ErrorCode.NOT_LOGIN_ERROR);

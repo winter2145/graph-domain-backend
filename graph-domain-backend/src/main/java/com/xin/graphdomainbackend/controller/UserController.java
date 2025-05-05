@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/user")
@@ -29,6 +30,14 @@ public class UserController {
     @Resource
     private UserService userService;
 
+    /**
+     * 获取验证码
+     */
+    @GetMapping("/getCode")
+    public BaseResponse<Map<String, String>> getCode() {
+        Map<String, String> captchaData = userService.getCaptcha();
+        return  ResultUtils.success(captchaData);
+    }
     /**
      * 获取邮箱验证码
      */
@@ -69,6 +78,7 @@ public class UserController {
         String password = userLoginRequest.getPassword();
         String verifyCode = userLoginRequest.getVerifyCode();
         String serverIfCode = userLoginRequest.getServerIfCode();
+        // String serverIfCode = "";
 
         if (StrUtil.hasBlank(accountOrEmail, password, verifyCode, serverIfCode)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
