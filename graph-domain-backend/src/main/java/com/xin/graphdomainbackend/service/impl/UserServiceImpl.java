@@ -221,9 +221,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
         // 3.查询用户信息
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        // queryWrapper.eq("userPassword", encryptPassword)
-        //         .and(qw -> qw.eq("userAccount", accountOrEmail)
-        //                 .or().eq("email", accountOrEmail));
 
         queryWrapper.eq("userAccount", accountOrEmail).or().eq("email", accountOrEmail);
 
@@ -432,10 +429,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
         // 生成表达式
         switch (random.nextInt(3)) {
-            case 0:
-                op = '+';
-                answer = a + b;
-                break;
             case 1:
                 op = '-';
                 if (a < b) {

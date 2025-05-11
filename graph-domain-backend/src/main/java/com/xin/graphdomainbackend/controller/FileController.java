@@ -8,7 +8,7 @@ import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
-import com.xin.graphdomainbackend.manager.CosManger;
+import com.xin.graphdomainbackend.manager.CosManager;
 import com.xin.graphdomainbackend.utils.ResultUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +25,7 @@ import java.io.IOException;
 public class FileController {
 
     @Resource
-    private CosManger cosManger;
+    private CosManager cosManager;
 
     /**
      * 测试文件上传
@@ -40,7 +40,7 @@ public class FileController {
         try {
             file = File.createTempFile(filepath, null);
             multipartFile.transferTo(file);
-            cosManger.putObject(filepath, file);
+            cosManager.putObject(filepath, file);
             return ResultUtils.success(filepath);
         } catch (IOException e) {
             log.error("file upload error, filepath = " + filepath);
@@ -65,7 +65,7 @@ public class FileController {
         COSObjectInputStream cosObjectInput = null;
 
         try {
-            COSObject cosObject = cosManger.getObject(filepath);
+            COSObject cosObject = cosManager.getObject(filepath);
             cosObjectInput = cosObject.getObjectContent();
             // 处理下载到的流, 这里是直接读取
             byte[] bytes = IOUtils.toByteArray(cosObjectInput);
