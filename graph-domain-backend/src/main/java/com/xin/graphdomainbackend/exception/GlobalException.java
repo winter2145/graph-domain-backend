@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 public class GlobalException {
 
-/*    @ExceptionHandler(BusinessException.class)
+    @ExceptionHandler(BusinessException.class)
     public BaseResponse<?> businessExceptionHandler(BusinessException e) {
         log.error("BusinessException", e);
         return ResultUtils.error(e.getCode(), e.getMessage());
@@ -25,9 +25,9 @@ public class GlobalException {
     public BaseResponse<?> businessExceptionHandler(RuntimeException e) {
         log.error("RuntimeException", e);
         return ResultUtils.error(ErrorCode.SYSTEM_ERROR, e.getMessage());
-    }*/
+    }
 
-    @ExceptionHandler(BusinessException.class)
+/*    @ExceptionHandler(BusinessException.class)
     public ResponseEntity<BaseResponse<?>> businessExceptionHandler(BusinessException e) {
         log.error("BusinessException", e);
 
@@ -49,9 +49,9 @@ public class GlobalException {
     }
 
 
-    /**
+    *//**
      * 根据业务状态码映射 HTTP 状态码
-     */
+     *//*
     private HttpStatus mapCodeToHttpStatus(int code) {
         if (code == ErrorCode.SUCCESS.getCode()) return HttpStatus.OK;
         if (code == ErrorCode.PARAMS_ERROR.getCode()) return HttpStatus.BAD_REQUEST;
@@ -64,6 +64,6 @@ public class GlobalException {
         }
         // 默认返回 500
         return HttpStatus.INTERNAL_SERVER_ERROR;
-    }
+    }*/
 
 }

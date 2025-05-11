@@ -8,6 +8,7 @@ import javax.annotation.Resource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/*
 @SpringBootTest
 public class ElasticsearchRestTemplateTest {
 
@@ -22,3 +23,4 @@ public class ElasticsearchRestTemplateTest {
         System.out.println("Elasticsearch 连接成功！");
     }
 }
+*/

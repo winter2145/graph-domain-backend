@@ -45,6 +45,10 @@ public class CosManger {
 
     /**
      * 上传对象（附带图片信息）
+     * 最多会上传3个图像文件，分别是：
+     * 原图（key 指定的路径，始终上传）
+     * webp 格式图像（如 xxx.webp，始终上传）
+     * 缩略图（如 xxx_thumbnail.xxx，只有当原图大于 2KB 时才上传）
      *
      * @param key  唯一键
      * @param file 文件
@@ -65,7 +69,7 @@ public class CosManger {
         compressRule.setBucket(cosClientConfig.getBucket());
         compressRule.setRule("imageMogr2/format/webp");
         rules.add(compressRule);
-        // 2. 缩略图处理，仅对 > 20 KB 的图片生成缩略图
+        // 2. 缩略图处理，仅对 > 2 KB 的图片生成缩略图
         if (file.length() > 2 * 1024) {
             PicOperations.Rule thumbnailRule = new PicOperations.Rule();
             // 拼接缩略图的路径

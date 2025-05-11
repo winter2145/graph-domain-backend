@@ -22,6 +22,7 @@ public enum UserRoleEnum {
 
     /**
      * 根据字符串值获取对应的用户角色枚举对象
+     *
      * @param value 角色值，例如 "user" 或 "admin"
      * @return 对应的UserRoleEnum，如果未匹配到则返回 null
      */

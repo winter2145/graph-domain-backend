@@ -20,4 +20,7 @@ public class UserConstant {
     // 管理员角色
     public static final String ADMIN_ROLE = "admin";
 
+    // 封禁角色
+    public static final String BAN_ROLE = "ban";
+
 }
