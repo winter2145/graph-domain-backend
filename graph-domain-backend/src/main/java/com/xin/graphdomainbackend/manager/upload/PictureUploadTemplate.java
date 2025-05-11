@@ -12,7 +12,7 @@ import com.qcloud.cos.model.ciModel.persistence.ProcessResults;
 import com.xin.graphdomainbackend.config.CosClientConfig;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
-import com.xin.graphdomainbackend.manager.CosManger;
+import com.xin.graphdomainbackend.manager.CosManager;
 import com.xin.graphdomainbackend.model.dto.file.UploadPictureResult;
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,7 +30,7 @@ public abstract class PictureUploadTemplate {
     private CosClientConfig cosClientConfig;
 
     @Resource
-    private CosManger cosManger;
+    private CosManager cosManager;
     /**
      * 上传图片 并获取 图片信息
      *
@@ -43,7 +43,7 @@ public abstract class PictureUploadTemplate {
         validPicture(inputSource);
 
         // 2.图片上传地址
-        String uuid = RandomUtil.randomString(16);
+        String uuid = RandomUtil.randomString(12);
         String originalFilename = getOriginalFilename(inputSource);
         // 自己拼接文件上传路径，而不是使用原始文件名称，可以增强安全性
         String uploadFilename = String.format("%s_%s.%s", DateUtil.formatDate(new Date()), uuid, FileUtil.getSuffix(originalFilename));
@@ -57,7 +57,7 @@ public abstract class PictureUploadTemplate {
             processFile(inputSource, file);
 
             // 4. 上传到对象存储（自动生成webp和缩略图）
-            PutObjectResult putObjectResult = cosManger.putPictureObject(uploadPath, file);
+            PutObjectResult putObjectResult = cosManager.putPictureObject(uploadPath, file);
 
             // 5. 获取原图信息
             ImageInfo imageInfo = putObjectResult.getCiUploadResult().getOriginalInfo().getImageInfo();

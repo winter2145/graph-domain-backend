@@ -11,12 +11,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.xin.graphdomainbackend.config.CosClientConfig;
 import com.xin.graphdomainbackend.constant.CrawlerConstant;
 import com.xin.graphdomainbackend.constant.RedisConstant;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.esdao.EsPictureDao;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
+import com.xin.graphdomainbackend.manager.CosManager;
 import com.xin.graphdomainbackend.manager.FileManager;
 import com.xin.graphdomainbackend.manager.upload.FilePictureUpload;
 import com.xin.graphdomainbackend.manager.upload.PictureUploadTemplate;
@@ -39,6 +41,7 @@ import org.jsoup.nodes.Document;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -79,6 +82,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private CosManager cosManager;
+
+    @Resource
+    private CosClientConfig cosClientConfig;
 
     @Override
     public void validPicture(Picture picture) {
@@ -674,8 +683,57 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             .build();
 
     @Override
-    public void deletePicture(Long id, User loginUser) {
+    @Transactional(rollbackFor = Exception.class)
+    public boolean deletePicture(Long pictureId, User loginUser) {
+        ThrowUtils.throwIf(pictureId <= 0, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NO_AUTH_ERROR);
 
+        // 判断图片是否存在
+        Picture oldPicture = this.getById(pictureId);
+        ThrowUtils.throwIf(oldPicture == null, ErrorCode.NOT_FOUND_ERROR);
+
+        // 数据库删除
+        boolean result = this.removeById(pictureId);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+
+        // 从ES删除
+        try {
+            esPictureDao.deleteById(pictureId);
+        } catch (Exception e) {
+            log.error("Delete picture from ES failed, pictureId: {}", pictureId, e);
+        }
+        // 异步清理文件
+        this.clearPictureFile(oldPicture);
+        return true;
+
+    }
+
+    @Override
+    public void clearPictureFile(Picture oldPicture) {
+        if (oldPicture == null) {
+            // 若 oldPicture 为 null，直接返回，避免空指针异常
+            return;
+        }
+        // 判断该图片是否被多条记录使用
+        String pictureUrl = oldPicture.getUrl();
+        long count = this.lambdaQuery()
+                .eq(Picture::getUrl, pictureUrl)
+                .count();
+        // 有不止一条记录用到了该图片，不清理
+        if (count > 1) {
+            return;
+        }
+        // 去掉前缀，只取 key 部分
+        String key = pictureUrl.replace(cosClientConfig.getHost(), "");
+        log.error("KEY的值为：" + key);
+        // 删除图片
+        cosManager.deleteObject(key);
+        // 删除缩略图
+        String thumbnailUrl = oldPicture.getThumbnailUrl();
+        key = thumbnailUrl.replace(cosClientConfig.getHost(), "");
+        if (StrUtil.isNotBlank(thumbnailUrl)) {
+            cosManager.deleteObject(key);
+        }
     }
 
     /**

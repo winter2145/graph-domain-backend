@@ -34,7 +34,7 @@ public class FileManager {
     private CosClientConfig cosClientConfig;
 
     @Resource
-    private CosManger cosManger;
+    private CosManager cosManager;
 
     /**
      * 上传图片 并获取 图片信息
@@ -57,7 +57,7 @@ public class FileManager {
             // 上传文件
             file = File.createTempFile(uploadPath, null);
             multipartFile.transferTo(file);
-            PutObjectResult putObjectResult = cosManger.putPictureObject(uploadPath, file);
+            PutObjectResult putObjectResult = cosManager.putPictureObject(uploadPath, file);
 
             // 获取图片信息对象
             ImageInfo imageInfo = putObjectResult.getCiUploadResult().getOriginalInfo().getImageInfo();

@@ -76,8 +76,8 @@ public class PictureController {
         }
 
         User loginUser = userService.getLoginUser(request);
-        Long id = deleteRequest.getId();
-        Picture targetPicture = pictureService.getById(id);
+        Long PictureId = deleteRequest.getId();
+        Picture targetPicture = pictureService.getById(PictureId);
         Long userId = targetPicture.getUserId();
 
         // 仅本人或管理员才能删除图片
@@ -87,7 +87,9 @@ public class PictureController {
         if (!isAdmin && !isMySelf) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "当前用户，无删除他人图片的权限");
         }
-        boolean result = pictureService.removeById(id);
+        boolean result = pictureService.deletePicture(PictureId, loginUser);
+
+        // boolean result = pictureService.removeById(PictureId);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(result);
     }

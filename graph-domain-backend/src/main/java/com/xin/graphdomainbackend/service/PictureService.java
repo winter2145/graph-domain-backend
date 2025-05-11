@@ -73,7 +73,14 @@ public interface PictureService extends IService<Picture> {
      * @param id 图片主键 ID
      * @param loginUser 当前登录用户
      */
-    void deletePicture(Long id, User loginUser);
+    boolean deletePicture(Long id, User loginUser);
+
+    /**
+     * 清理图片文件
+     *
+     * @param oldPicture
+     */
+    void clearPictureFile(Picture oldPicture);
 
     /**
      * 获取图片视图对象
