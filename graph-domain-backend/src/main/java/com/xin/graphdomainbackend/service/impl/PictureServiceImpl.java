@@ -40,6 +40,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
@@ -539,8 +540,11 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
             for (String fileUrl : picUrls) {
                 // 去重
-                if (seenUrls.contains(fileUrl)) continue;
-                seenUrls.add(fileUrl);
+                if (seenUrls.contains(fileUrl)) continue; // 如果已经处理过这个图片链接，跳过本次循环
+                seenUrls.add(fileUrl); // 把当前图片链接加入已处理集合
+
+                // 修正图片链接
+                fileUrl = fileUrl.replaceAll("(?i)(\\.(jpg|jpeg|png|webp|gif))(/.*)?$", ".$2");
 
                 try {
                     PictureUploadRequest request = new PictureUploadRequest();
@@ -549,6 +553,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                     request.setCategoryName(uploadByBatchRequest.getCategoryName());
                     request.setTagName(JSONUtil.toJsonStr(uploadByBatchRequest.getTagName()));
 
+                    // 上传图片
                     PictureVO pictureVO = this.uploadPicture(fileUrl, request, loginUser);
                     log.info("图片上传成功，id = {}", pictureVO.getId());
                     uploadCount++;
@@ -709,6 +714,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     }
 
     @Override
+    @Async
     public void clearPictureFile(Picture oldPicture) {
         if (oldPicture == null) {
             // 若 oldPicture 为 null，直接返回，避免空指针异常

@@ -77,7 +77,14 @@ public class UrlPictureUpload extends PictureUploadTemplate{
     @Override
     protected String getOriginalFilename(Object inputSource) {
         String fileUrl = (String) inputSource;
-        return FileUtil.mainName(fileUrl);
+        // 截取最后一个 / 后的内容
+        String filename = fileUrl.substring(fileUrl.lastIndexOf('/') + 1);
+        // 去掉 ? 或 # 后的参数
+        int qIndex = filename.indexOf('?');
+        if (qIndex != -1) filename = filename.substring(0, qIndex);
+        int hIndex = filename.indexOf('#');
+        if (hIndex != -1) filename = filename.substring(0, hIndex);
+        return filename;
     }
 
     @Override
