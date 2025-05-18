@@ -706,6 +706,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             esPictureDao.deleteById(pictureId);
         } catch (Exception e) {
             log.error("Delete picture from ES failed, pictureId: {}", pictureId, e);
+            throw new RuntimeException("ES 删除失败", e); // 关键点
         }
         // 异步清理文件
         this.clearPictureFile(oldPicture);
