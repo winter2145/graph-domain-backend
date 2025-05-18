@@ -80,3 +80,35 @@ CREATE INDEX idx_userId
 
 CREATE INDEX idx_viewCount
     ON picture (viewCount);
+
+-- 空间表
+CREATE  TABLE space
+(
+    id         bigint AUTO_INCREMENT COMMENT 'id'
+        PRIMARY KEY,
+    spaceName  varchar(128)                       NULL COMMENT '空间名称',
+    spaceLevel int      DEFAULT 0                 NULL COMMENT '空间级别：0-普通版 1-专业版 2-旗舰版',
+    maxSize    bigint   DEFAULT 0                 NULL COMMENT '空间图片的最大总大小',
+    maxCount   bigint   DEFAULT 0                 NULL COMMENT '空间图片的最大数量',
+    totalSize  bigint   DEFAULT 0                 NULL COMMENT '当前空间下图片的总大小',
+    totalCount bigint   DEFAULT 0                 NULL COMMENT '当前空间下的图片数量',
+    userId     bigint                             NOT NULL COMMENT '创建用户 id',
+    createTime datetime DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    editTime   datetime DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '编辑时间',
+    updateTime datetime DEFAULT CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    isDelete   tinyint  DEFAULT 0                 NOT NULL COMMENT '是否删除',
+    spaceType  int      DEFAULT 0                 NOT NULL COMMENT '空间类型：0-私有 1-团队'
+)
+    COMMENT '空间' COLLATE  = utf8mb3_unicode_ci;
+
+CREATE INDEX idx_spaceLevel
+    ON space (spaceLevel);
+
+CREATE INDEX idx_spaceName
+    ON space (spaceName);
+
+CREATE INDEX idx_spaceType
+    ON space (spaceType);
+
+CREATE INDEX idx_userId
+    ON space (userId);
