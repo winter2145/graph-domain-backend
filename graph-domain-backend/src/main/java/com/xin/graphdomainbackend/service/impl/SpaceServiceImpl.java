@@ -3,6 +3,7 @@ package com.xin.graphdomainbackend.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -24,6 +25,8 @@ import com.xin.graphdomainbackend.service.SpaceService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +35,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -50,9 +54,76 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     @Resource
     private EsSpaceDao esSpaceDao;
 
+    @Resource
+    private RedissonClient redissonClient;
+
     @Override
     public long addSpace(SpaceAddRequest spaceAddRequest, User loginUser) {
-        return 0;
+        // 1.填充参数默认值
+        Space space = new Space();
+        BeanUtils.copyProperties(spaceAddRequest, space);
+        if (StrUtil.isBlank(space.getSpaceName())) {
+            space.setSpaceName("默认空间");
+        }
+        if (space.getSpaceLevel() == null) {
+            space.setSpaceLevel(SpaceLevelEnum.COMMON.getValue());
+        }
+        if (space.getSpaceType() == null) {
+            space.setSpaceType(SpaceTypeEnum.PRIVATE.getValue());
+        }
+
+        // 2.校验参数
+        this.validSpace(space, true);
+        if (loginUser.getId() == null || loginUser.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        // 3.校验权限, 非管理员只能创建普通级别的空间
+        boolean admin = userService.isAdmin(loginUser);
+        if (SpaceLevelEnum.COMMON.getValue() != space.getSpaceLevel()
+        && !admin) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限创建指定级别的空间");
+        }
+
+        // 4.控制同一个用户只能创建一个私有空间
+        // 利用 redisson 构造分布式锁 key
+        long userId = loginUser.getId();
+        String lockKey = String.format("space:create:private:lock:%s", userId);
+        RLock lock = redissonClient.getLock(lockKey);
+        try {
+            boolean isLock = lock.tryLock(5, TimeUnit.SECONDS);
+            if (!isLock) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "系统繁忙，请稍后重试");
+            }
+            if (space.getSpaceType().equals(SpaceTypeEnum.PRIVATE.getValue())) {
+                // 查询该用户是否已存在私有空间
+                LambdaQueryWrapper<Space> queryWrapper = new LambdaQueryWrapper<>();
+                queryWrapper.eq(Space::getUserId, loginUser.getId())
+                        .eq(Space::getSpaceType, SpaceTypeEnum.PRIVATE.getValue());
+                long count = this.count(queryWrapper);
+                if (count > 0) {
+                    throw new BusinessException(ErrorCode.OPERATION_ERROR, "每个用户只能创建一个私有空间");
+                }
+            }
+            // 5.保存空间
+            space.setUserId(loginUser.getId());
+            boolean result = this.save(space);
+            if (!result) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "空间创建失败");
+            }
+            return space.getId();
+        } catch (BusinessException e) {
+            // 保留原始业务异常信息
+            throw e;
+        } catch (Exception e) {
+            log.error("doCacheRegisterUser error", e);
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "系统异常，请稍后再试");
+        } finally {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
+
     }
 
     @Override

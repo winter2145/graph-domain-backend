@@ -1,16 +1,14 @@
 package com.xin.graphdomainbackend.service;
 
-import co.elastic.clients.elasticsearch.watcher.QueryWatch;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.space.SpaceAddRequest;
 import com.xin.graphdomainbackend.model.dto.space.SpaceQueryRequest;
 import com.xin.graphdomainbackend.model.entity.Space;
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.vo.SpaceVO;
-import org.elasticsearch.action.support.HandledTransportAction;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
