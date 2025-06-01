@@ -116,6 +116,11 @@ public class Picture implements Serializable {
     private Date reviewTime;
 
     /**
+     * webp url
+     */
+    private String webpUrl;
+
+    /**
      * 缩略图 url
      */
     private String thumbnailUrl;

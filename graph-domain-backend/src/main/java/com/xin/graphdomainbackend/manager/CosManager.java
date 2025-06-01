@@ -48,7 +48,7 @@ public class CosManager {
      * 最多会上传3个图像文件，分别是：
      * 原图（key 指定的路径，始终上传）
      * webp 格式图像（如 xxx.webp，始终上传）
-     * 缩略图（如 xxx_thumbnail.xxx，只有当原图大于 2KB 时才上传）
+     * 缩略图（如 xxx_thumbnail.xxx，只有当原图大于 20KB 时才上传）
      *
      * @param key  唯一键
      * @param file 文件

@@ -15,6 +15,8 @@ import com.xin.graphdomainbackend.model.dto.space.SpaceQueryRequest;
 import com.xin.graphdomainbackend.model.dto.space.SpaceUpdateRequest;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
+import com.xin.graphdomainbackend.model.enums.SpaceLevelEnum;
+import com.xin.graphdomainbackend.model.vo.SpaceLevelVO;
 import com.xin.graphdomainbackend.model.vo.SpaceVO;
 import com.xin.graphdomainbackend.service.SpaceService;
 import com.xin.graphdomainbackend.service.UserService;
@@ -27,7 +29,10 @@ import org.springframework.web.servlet.tags.HtmlEscapeTag;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @Slf4j
@@ -173,6 +178,24 @@ public class SpaceController {
         Page<SpaceVO> spaceVOPage = spaceService.getSpaceVOPage(spacePage, request);
 
         return ResultUtils.success(spaceVOPage);
+    }
+
+    /*
+    * 获取空间级别列表，便于前端展示
+     */
+    @GetMapping("/list/level")
+    public BaseResponse<List<SpaceLevelVO>> listSpaceLevel() {
+        List<SpaceLevelVO> spaceLevelVOList = Arrays
+                .stream(SpaceLevelEnum.values())
+                .map(spaceLevelEnum -> new SpaceLevelVO(
+                        spaceLevelEnum.getValue(),
+                        spaceLevelEnum.getText(),
+                        spaceLevelEnum.getMaxCount(),
+                        spaceLevelEnum.getMaxSize()
+                ))
+                .collect(Collectors.toList());
+
+        return ResultUtils.success(spaceLevelVOList);
     }
 
 }

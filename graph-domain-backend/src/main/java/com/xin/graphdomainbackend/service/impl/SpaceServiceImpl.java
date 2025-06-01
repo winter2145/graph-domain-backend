@@ -6,6 +6,7 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.repository.AbstractRepository;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.esdao.EsSpaceDao;
 import com.xin.graphdomainbackend.exception.BusinessException;
@@ -338,6 +339,15 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
             space.setMaxSize(maxSize);
         }
 
+    }
+
+    @Override
+    public void checkSpaceAuth(User loginUser, Space space) {
+        // 仅本人或是管理员可以操作
+        if (!space.getUserId().equals(loginUser.getId())
+                && !userService.isAdmin(loginUser)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
     }
 }
 

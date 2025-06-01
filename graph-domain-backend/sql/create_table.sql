@@ -57,6 +57,8 @@ CREATE TABLE picture
 )
     COMMENT '图片' COLLATE = utf8mb4_unicode_ci;
 
+ALTER TABLE picture ADD webpUrl VARCHAR(512) NULL COMMENT 'webp url' AFTER reviewTime;
+
 CREATE INDEX idx_category
     ON picture (category);
 

@@ -148,4 +148,12 @@ public interface PictureService extends IService<Picture> {
      */
     Page<PictureVO> listPictureVOByPageWithCache(PictureQueryRequest pictureQueryRequest, HttpServletRequest request);
 
+    /**
+     * 校验空间图片的权限
+     *
+     * @param loginUser 登录用户
+     * @param picture 图片对象
+     */
+    void checkPictureAuth(User loginUser, Picture picture);
+
 }

@@ -4,6 +4,8 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xin.graphdomainbackend.annotation.AuthCheck;
+import com.xin.graphdomainbackend.api.imagesearch.ImageSearchByCrawlerApi;
+import com.xin.graphdomainbackend.api.imagesearch.model.ImageSearchResult;
 import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
@@ -11,9 +13,12 @@ import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.picture.*;
 import com.xin.graphdomainbackend.model.entity.Picture;
+import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
+import com.xin.graphdomainbackend.model.enums.PictureReviewStatusEnum;
 import com.xin.graphdomainbackend.model.vo.PictureVO;
 import com.xin.graphdomainbackend.service.PictureService;
+import com.xin.graphdomainbackend.service.SpaceService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ResultUtils;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
@@ -24,6 +29,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 @RestController
 @Slf4j
@@ -36,6 +42,8 @@ public class PictureController {
     @Resource
     private PictureService pictureService;
 
+    @Resource
+    private SpaceService spaceService;
 
 
     /**
@@ -78,19 +86,14 @@ public class PictureController {
         User loginUser = userService.getLoginUser(request);
         Long PictureId = deleteRequest.getId();
         Picture targetPicture = pictureService.getById(PictureId);
-        Long userId = targetPicture.getUserId();
 
-        // 仅本人或管理员才能删除图片
-        boolean isAdmin = userService.isAdmin(loginUser);
-        boolean isMySelf = userId.equals(loginUser.getId());
+        // 校验图片权限
+        pictureService.checkPictureAuth(loginUser, targetPicture);
 
-        if (!isAdmin && !isMySelf) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "当前用户，无删除他人图片的权限");
-        }
+        // 操作数据库
         boolean result = pictureService.deletePicture(PictureId, loginUser);
-
-        // boolean result = pictureService.removeById(PictureId);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+
         return ResultUtils.success(result);
     }
 
@@ -136,12 +139,19 @@ public class PictureController {
      */
     @GetMapping("/get")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<Picture> getPictureById(long id ) {
+    public BaseResponse<Picture> getPictureById(long id, HttpServletRequest request) {
         ThrowUtils.throwIf(id < 0, ErrorCode.PARAMS_ERROR);
+
         // 查询数据库
         Picture picture = pictureService.getById(id);
-
         ThrowUtils.throwIf(picture == null, ErrorCode.NOT_FOUND_ERROR);
+        // 空间权限校验
+        assert picture != null;
+        Long spaceId = picture.getSpaceId();
+        if (spaceId != null) {
+            User loginUser = userService.getLoginUser(request);
+            pictureService.checkPictureAuth(loginUser, picture);
+        }
         return ResultUtils.success(picture);
     }
 
@@ -149,9 +159,17 @@ public class PictureController {
      * 根据 id 获取图片包装类 （主要面向普通用户）
      */
     @GetMapping("/get/vo")
-    public BaseResponse<PictureVO> getPictureVOById(long id) {
-        BaseResponse<Picture> pictureById = getPictureById(id);
+    public BaseResponse<PictureVO> getPictureVOById(long id, HttpServletRequest request
+    ) {
+        BaseResponse<Picture> pictureById = getPictureById(id, request);
         Picture picture = pictureById.getData();
+
+        assert picture != null;
+        Long spaceId = picture.getSpaceId();
+        if (spaceId != null) {
+            User loginUser = userService.getLoginUser(request);
+            pictureService.checkPictureAuth(loginUser, picture);
+        }
 
         return ResultUtils.success(pictureService.getPictureVO(picture));
     }
@@ -162,6 +180,12 @@ public class PictureController {
     @PostMapping("/list/page")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Page<Picture>> listPictureByPage(@RequestBody PictureQueryRequest pictureQueryRequest) {
+
+        Long spaceId = pictureQueryRequest.getSpaceId();
+        // 公开图库
+        if (spaceId == null) { // 管理员可以查看公开数据
+            pictureQueryRequest.setNullSpaceId(true);
+        }
         Page<Picture> pictureByPage = pictureService.getPictureByPage(pictureQueryRequest);
 
         return ResultUtils.success(pictureByPage);
@@ -173,7 +197,19 @@ public class PictureController {
     @PostMapping("/list/page/vo")
     public BaseResponse<Page<PictureVO>> listPictureVOByPage(@RequestBody PictureQueryRequest pictureQueryRequest,
                                                              HttpServletRequest request) {
-        userService.getLoginUser(request);
+        Long spaceId = pictureQueryRequest.getSpaceId();
+        // 公开图库
+        if (spaceId == null) { // 普通用户默认只能查看已过审的公开数据
+            pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+            pictureQueryRequest.setNullSpaceId(true);
+        } else { // 私有空间,不需要审核,只有本人可以查看
+            User loginUser = userService.getLoginUser(request);
+            Space space = spaceService.getById(spaceId);
+            ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR);
+            if (!loginUser.getId().equals(space.getUserId())) {
+                throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "仅本人可以操作");
+            }
+        }
 
         Page<PictureVO> pictureVOByPage = pictureService.getPictureVOByPage(pictureQueryRequest);
         return ResultUtils.success(pictureVOByPage);
@@ -216,4 +252,22 @@ public class PictureController {
                 pictureService.listPictureVOByPageWithCache(pictureQueryRequest, request)
         );
     }
+
+    /**
+     * 以图搜图(爬取百度识图url)
+     */
+    @PostMapping("/search/picture")
+    public BaseResponse<List<ImageSearchResult>> searchPictureByPicture(@RequestBody SearchPictureByPictureRequest searchPictureByPictureRequest, HttpServletRequest request) {
+        userService.getLoginUser(request);
+
+        ThrowUtils.throwIf(searchPictureByPictureRequest == null, ErrorCode.PARAMS_ERROR);
+        Long pictureId = searchPictureByPictureRequest.getPictureId();
+        ThrowUtils.throwIf(pictureId == null || pictureId <= 0, ErrorCode.PARAMS_ERROR);
+        Picture picture = pictureService.getById(pictureId);
+        ThrowUtils.throwIf(picture == null, ErrorCode.NOT_FOUND_ERROR);
+        List<ImageSearchResult> resultList = ImageSearchByCrawlerApi.searchImage(picture.getThumbnailUrl());
+
+        return ResultUtils.success(resultList);
+    }
+
 }

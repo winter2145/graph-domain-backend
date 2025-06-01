@@ -13,6 +13,11 @@ public class UploadPictureResult {
     private String url;
 
     /**
+     * Webp图片地址
+     */
+    private String webpUrl;
+
+    /**
      * 缩略图 url
      */
     private String thumbnailUrl;
