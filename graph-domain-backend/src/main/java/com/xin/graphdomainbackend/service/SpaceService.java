@@ -6,6 +6,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.space.SpaceAddRequest;
 import com.xin.graphdomainbackend.model.dto.space.SpaceQueryRequest;
+import com.xin.graphdomainbackend.model.dto.space.analyze.SpaceAnalyzeRequest;
+import com.xin.graphdomainbackend.model.dto.space.analyze.SpaceUsageAnalyzeRequest;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.vo.SpaceVO;
@@ -90,12 +92,11 @@ public interface SpaceService extends IService<Space> {
     void fillSpaceBySpaceLevel(Space space);
 
     /**
-     * 校验空间权限
+     * 校验私有空间权限
      *
      * @param loginUser 当前登录用户
      * @param space 空间对象
      */
-    void checkSpaceAuth(User loginUser, Space space);
-
+    void checkPrivateSpaceAuth(User loginUser, Space space);
 
 }

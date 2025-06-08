@@ -14,6 +14,7 @@ import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.manager.CosManager;
 import com.xin.graphdomainbackend.model.dto.file.UploadPictureResult;
+import com.xin.graphdomainbackend.utils.HexColorExpanderUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Resource;
@@ -113,6 +114,9 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicHeight(picHeight);
         uploadPictureResult.setPicScale(picScale);
         uploadPictureResult.setPicFormat(imageInfo.getFormat());
+        // 设置图片主色调
+        String picColor = HexColorExpanderUtils.normalizeHexColor(imageInfo.getAve());
+        uploadPictureResult.setPicColor(picColor);
         return uploadPictureResult;
     }
 
@@ -139,7 +143,9 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicHeight(picHeight);
         uploadPictureResult.setPicScale(picScale);
         uploadPictureResult.setPicFormat(compressedCiObject.getFormat());
-        uploadPictureResult.setPicColor(imageInfo.getAve());
+        // 设置图片主色调
+        String picColor = HexColorExpanderUtils.normalizeHexColor(imageInfo.getAve());
+        uploadPictureResult.setPicColor(picColor);
 
         // 返回可访问的地址
         return uploadPictureResult;

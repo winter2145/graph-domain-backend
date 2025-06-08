@@ -156,4 +156,21 @@ public interface PictureService extends IService<Picture> {
      */
     void checkPictureAuth(User loginUser, Picture picture);
 
+    /**
+     * 根据图片主色调在指定空间中搜索图片列表。
+     *
+     * @param spaceId   空间ID，用于限定搜索范围（例如某个用户或项目的图片空间）
+     * @param picColor  目标图片主色调（十六进制颜色字符串，例如 "#aabbcc" 或 "0xAABBCC"）；
+     * @param loginUser 当前登录用户对象，用于权限验证和数据隔离
+     * @return 匹配指定主色调的图片信息列表（PictureVO），如果无匹配则返回空列表
+     */
+    List<PictureVO> searchPictureByColor(Long spaceId, String picColor, User loginUser);
+
+    /**
+     * 批量编辑图片
+     * @param pictureEditByBatchRequest 图片批量编辑请求
+     * @param loginUser 登录用户
+     */
+    boolean editPictureByBatch(PictureEditByBatchRequest pictureEditByBatchRequest, User loginUser);
+
 }

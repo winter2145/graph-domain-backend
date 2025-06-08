@@ -6,7 +6,6 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.repository.AbstractRepository;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.esdao.EsSpaceDao;
 import com.xin.graphdomainbackend.exception.BusinessException;
@@ -22,6 +21,7 @@ import com.xin.graphdomainbackend.model.enums.SpaceLevelEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceTypeEnum;
 import com.xin.graphdomainbackend.model.vo.SpaceVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
+import com.xin.graphdomainbackend.service.PictureService;
 import com.xin.graphdomainbackend.service.SpaceService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
@@ -342,10 +342,9 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     }
 
     @Override
-    public void checkSpaceAuth(User loginUser, Space space) {
-        // 仅本人或是管理员可以操作
-        if (!space.getUserId().equals(loginUser.getId())
-                && !userService.isAdmin(loginUser)) {
+    public void checkPrivateSpaceAuth(User loginUser, Space space) {
+        // 仅本人可以操作
+        if (!space.getUserId().equals(loginUser.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
     }

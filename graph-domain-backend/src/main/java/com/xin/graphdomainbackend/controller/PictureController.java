@@ -200,7 +200,10 @@ public class PictureController {
         Long spaceId = pictureQueryRequest.getSpaceId();
         // 公开图库
         if (spaceId == null) { // 普通用户默认只能查看已过审的公开数据
-            pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+            // 如果传了 reviewStatus，说明是用户主动筛选，比如“我的发布”
+            if (pictureQueryRequest.getReviewStatus() == null) {
+                pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+            }
             pictureQueryRequest.setNullSpaceId(true);
         } else { // 私有空间,不需要审核,只有本人可以查看
             User loginUser = userService.getLoginUser(request);
@@ -212,6 +215,23 @@ public class PictureController {
         }
 
         Page<PictureVO> pictureVOByPage = pictureService.getPictureVOByPage(pictureQueryRequest);
+        return ResultUtils.success(pictureVOByPage);
+    }
+
+    /**
+     * 分页获取图片列表封装类（"我的发布"）
+     */
+    @PostMapping("/list/my/page/vo")
+    public BaseResponse<Page<PictureVO>> listMyPictureVOByPage(@RequestBody PictureQueryRequest pictureQueryRequest,
+                                                               HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        Long userId = loginUser.getId();
+
+        // 强制绑定当前用户
+        pictureQueryRequest.setUserId(userId);
+        // 如果传了 reviewStatus
+        Page<PictureVO> pictureVOByPage = pictureService.getPictureVOByPage(pictureQueryRequest);
+
         return ResultUtils.success(pictureVOByPage);
     }
 
@@ -269,5 +289,43 @@ public class PictureController {
 
         return ResultUtils.success(resultList);
     }
+
+    /**
+     * 以图搜图(bing)
+     */
+
+    /**
+     * 按照颜色搜索
+     */
+    @PostMapping("/search/color")
+    public BaseResponse<List<PictureVO>> searchPictureByColor(@RequestBody SearchPictureByColorRequest pictureByColorRequest
+            , HttpServletRequest request) {
+        ThrowUtils.throwIf(pictureByColorRequest == null, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(request == null, ErrorCode.NOT_LOGIN_ERROR);
+
+        String picColor = pictureByColorRequest.getPicColor();
+        Long spaceId = pictureByColorRequest.getSpaceId();
+        User loginUser = userService.getLoginUser(request);
+        List<PictureVO> pictureVOList = pictureService.searchPictureByColor(spaceId, picColor, loginUser);
+
+        return ResultUtils.success(pictureVOList);
+    }
+
+    /**
+     * 批量编辑图片
+     */
+    @PostMapping("/edit/batch")
+    public BaseResponse<Boolean> editPictureByBatch(@RequestBody PictureEditByBatchRequest pictureEditByBatchRequest
+            , HttpServletRequest request) {
+        ThrowUtils.throwIf(pictureEditByBatchRequest == null, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
+
+        User loginUser = userService.getLoginUser(request);
+        boolean result = pictureService.editPictureByBatch(pictureEditByBatchRequest, loginUser);
+
+        return ResultUtils.success(result);
+    }
+
+
 
 }

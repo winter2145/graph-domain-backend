@@ -2,7 +2,6 @@ package com.xin.graphdomainbackend.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
@@ -36,11 +35,13 @@ import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.service.PictureService;
 import com.xin.graphdomainbackend.service.SpaceService;
 import com.xin.graphdomainbackend.service.UserService;
+import com.xin.graphdomainbackend.utils.ColorSimilarUtils;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.BeansException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -52,9 +53,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.awt.*;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -212,6 +215,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         picture.setPicScale(uploadPictureResult.getPicScale());
         picture.setPicFormat(uploadPictureResult.getPicFormat());
         picture.setUserId(loginUser.getId());
+        picture.setPicColor(uploadPictureResult.getPicColor());
 
         // 补充审核参数
         this.fillReviewParams(picture, loginUser);
@@ -855,6 +859,151 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             if (!isMySelf) {
                 throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "仅本人可以操作");
             }
+        }
+    }
+
+    @Override
+    public List<PictureVO> searchPictureByColor(Long spaceId, String picColor, User loginUser) {
+        // 1.校验参数
+        ThrowUtils.throwIf(spaceId == null || StrUtil.isBlank(picColor), ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NO_AUTH_ERROR);
+
+        // 2.校验空间权限
+        Space space = spaceService.getById(spaceId);
+        ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR);
+        spaceService.checkPrivateSpaceAuth(loginUser, space);
+
+        // 3.查询该空间下所有含主色调的图片
+        List<Picture> pictureList = this.lambdaQuery()
+                .eq(Picture::getSpaceId, spaceId)
+                .isNotNull(Picture::getPicColor)
+                .list();
+        // 如果没有图片，直接返回空列表
+        if (CollUtil.isEmpty(pictureList)) {
+            return new ArrayList<>();
+        }
+        // 将颜色字符串转换为主色调
+        Color targetColor = Color.decode(picColor);
+
+        // 4. 计算相似度并排序
+        List<Picture> sortedPictureList = pictureList.stream()
+                .sorted(Comparator.comparingDouble(picture -> {
+                    String hexColor = picture.getPicColor();
+                    if (StrUtil.isBlank(hexColor)) {
+                        return Double.MAX_VALUE;
+                    }
+                    Color pictureColor = Color.decode(hexColor);
+
+                    return -ColorSimilarUtils.calculateSimilarity(targetColor, pictureColor);
+                }))
+                .limit(12) // 取前 12 个
+                .collect(Collectors.toList());
+
+        // 5.返回结果
+        return sortedPictureList.stream()
+                .map(picture -> PictureVO.objToVo(picture))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public boolean editPictureByBatch(PictureEditByBatchRequest pictureEditByBatchRequest, User loginUser) {
+        // 1.获取、校验参数
+        List<Long> pictureIdList = pictureEditByBatchRequest.getPictureIdList();
+        Long spaceId = pictureEditByBatchRequest.getSpaceId();
+
+        ThrowUtils.throwIf(CollUtil.isEmpty(pictureIdList), ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
+        if (spaceId == null || spaceId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        // 2.校验空间权限
+        Space space = spaceService.getById(spaceId);
+        spaceService.checkPrivateSpaceAuth(loginUser, space);
+
+        // 3.查询指定图片
+        List<Picture> pictureList = this.lambdaQuery()
+                .select(Picture::getId, Picture::getSpaceId)
+                .eq(Picture::getSpaceId, spaceId)
+                //	再加一个过滤条件：只选出 ID 属于 pictureIdList 的图片
+                .in(Picture::getId, pictureIdList)
+                .list();
+        if (pictureList.isEmpty()) {
+            return false;
+        }
+
+        // 4.更新分类和标签
+        String category = pictureEditByBatchRequest.getCategory();
+        List<String> tags = pictureEditByBatchRequest.getTags();
+        pictureList.forEach(picture -> {
+            if (StrUtil.isNotBlank(category)) {
+                picture.setCategory(category);
+            }
+            if (CollUtil.isNotEmpty(tags)) {
+                picture.setTags(JSONUtil.toJsonStr(tags));
+            }
+        });
+
+        // 5.批量重命名
+        String nameRule = pictureEditByBatchRequest.getNameRule();
+        fillPictureWithNameRule(pictureList, nameRule);
+
+        //6.更新数据库
+        transactionTemplate.execute(status -> {
+            boolean result = this.updateBatchById(pictureList);
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "批量编辑失败");
+
+            // 7. 同步更新 ES 数据
+            try {
+                List<EsPicture> esPictures = new ArrayList<>();
+                for (Picture picture : pictureList) {
+                    Long pictureId = picture.getId();
+                    Optional<EsPicture> esOptional = esPictureDao.findById(pictureId);
+
+                    EsPicture esPicture;
+                    if (esOptional.isPresent()) {
+                        esPicture = esOptional.get();
+                        if (StrUtil.isNotBlank(nameRule)) {
+                            esPicture.setName(picture.getName());
+                        }
+                        if (StrUtil.isNotBlank(category)) {
+                            esPicture.setCategory(category);
+                        }
+                        if (CollUtil.isNotEmpty(tags)) {
+                            esPicture.setTags(JSONUtil.toJsonStr(tags));
+                        }
+                    } else {
+                        Picture fullPicture = this.getById(pictureId);
+                        esPicture = new EsPicture();
+                        BeanUtils.copyProperties(fullPicture, esPicture);
+                    }
+                    esPictures.add(esPicture);
+                }
+                // 批量保存到 ES
+                esPictureDao.saveAll(esPictures);
+            } catch (BeansException e) {
+                // 重点：标记当前事务回滚
+                status.setRollbackOnly();
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
+            }
+            return null;
+        });
+        return true;
+    }
+
+    private void fillPictureWithNameRule(List<Picture> pictureList, String nameRule) {
+        if (StrUtil.isBlank(nameRule) || CollUtil.isEmpty(pictureList)) {
+            return;
+        }
+        long count = 1;
+        try {
+            for (Picture picture : pictureList) {
+                String pictureName = nameRule.replaceAll("\\{序号}", String.valueOf(count++));
+                picture.setName(pictureName);
+            }
+        } catch (Exception e) {
+            log.error("名称解析错误", e);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "名称解析错误");
         }
     }
 }
