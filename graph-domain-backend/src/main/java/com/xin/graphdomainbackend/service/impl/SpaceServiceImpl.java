@@ -319,8 +319,8 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         queryWrapper.eq(ObjUtil.isNotEmpty(id), "id", id);
         queryWrapper.eq(ObjUtil.isNotEmpty(userId), "userId", userId);
         queryWrapper.eq(StrUtil.isNotBlank(spaceName), "spaceName", spaceName);
-        queryWrapper.eq(ObjUtil.isNotEmpty(spaceLevel), "id", spaceLevel);
-        queryWrapper.eq(ObjUtil.isNotEmpty(spaceType), "id", spaceType);
+        queryWrapper.eq(ObjUtil.isNotEmpty(spaceLevel), "spaceLevel", spaceLevel);
+        queryWrapper.eq(ObjUtil.isNotEmpty(spaceType), "spaceType", spaceType);
 
         // 排序
         queryWrapper.orderBy(StrUtil.isNotEmpty(sortField), sortOrder.equals("ascend"), sortField);

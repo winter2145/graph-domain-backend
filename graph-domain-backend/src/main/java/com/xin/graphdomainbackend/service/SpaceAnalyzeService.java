@@ -6,10 +6,7 @@ import com.xin.graphdomainbackend.model.dto.space.analyze.*;
 import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
-import com.xin.graphdomainbackend.model.vo.space.analyze.SpaceCategoryAnalyzeResponse;
-import com.xin.graphdomainbackend.model.vo.space.analyze.SpaceSizeAnalyzeResponse;
-import com.xin.graphdomainbackend.model.vo.space.analyze.SpaceTagAnalyzeResponse;
-import com.xin.graphdomainbackend.model.vo.space.analyze.SpaceUsageAnalyzeResponse;
+import com.xin.graphdomainbackend.model.vo.space.analyze.*;
 
 import java.util.List;
 
@@ -64,5 +61,23 @@ public interface SpaceAnalyzeService extends IService<Space> {
      */
     List<SpaceSizeAnalyzeResponse> getSpaceSizeAnalyze(SpaceSizeAnalyzeRequest sizeAnalyzeRequest, User loginUser);
 
+
+    /**
+     * 获取空间用户上传行为分析
+     *
+     * @param userAnalyzeRequest 请求参数
+     * @param loginUser 当前登录用户
+     * @return
+     */
+    List<SpaceUserAnalyzeResponse> getSpaceUserAnalyze(SpaceUserAnalyzeRequest userAnalyzeRequest, User loginUser);
+
+    /**
+     * 空间使用排行分析（仅管理员）
+     *
+     * @param spaceRankAnalyzeRequest 请求参数
+     * @param loginUser 当前登录用户
+     * @return
+     */
+    List<Space> getSpaceRankAnalyze(SpaceRankAnalyzeRequest spaceRankAnalyzeRequest, User loginUser);
 
 }

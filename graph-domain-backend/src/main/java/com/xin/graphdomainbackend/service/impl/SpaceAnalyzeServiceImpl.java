@@ -1,5 +1,6 @@
 package com.xin.graphdomainbackend.service.impl;
 
+import cn.hutool.core.util.ObjUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -12,10 +13,7 @@ import com.xin.graphdomainbackend.model.dto.space.analyze.*;
 import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
-import com.xin.graphdomainbackend.model.vo.space.analyze.SpaceCategoryAnalyzeResponse;
-import com.xin.graphdomainbackend.model.vo.space.analyze.SpaceSizeAnalyzeResponse;
-import com.xin.graphdomainbackend.model.vo.space.analyze.SpaceTagAnalyzeResponse;
-import com.xin.graphdomainbackend.model.vo.space.analyze.SpaceUsageAnalyzeResponse;
+import com.xin.graphdomainbackend.model.vo.space.analyze.*;
 import com.xin.graphdomainbackend.service.PictureService;
 import com.xin.graphdomainbackend.service.SpaceAnalyzeService;
 import com.xin.graphdomainbackend.service.SpaceService;
@@ -252,5 +250,65 @@ public class SpaceAnalyzeServiceImpl extends ServiceImpl<SpaceMapper, Space>
                         size.getValue()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<SpaceUserAnalyzeResponse> getSpaceUserAnalyze(SpaceUserAnalyzeRequest userAnalyzeRequest, User loginUser) {
+        ThrowUtils.throwIf(userAnalyzeRequest == null, ErrorCode.PARAMS_ERROR);
+        checkAnalyzeSpaceAuth(userAnalyzeRequest, loginUser);
+
+        QueryWrapper<Picture> queryWrapper = new QueryWrapper<>();
+        fillAnalyzeQueryWrapper(userAnalyzeRequest, queryWrapper);
+
+        Long userId = userAnalyzeRequest.getUserId();
+        queryWrapper.eq(ObjUtil.isNull(userId), "userId", userId);
+        // 按年、月、日
+        String timeDimension = userAnalyzeRequest.getTimeDimension();
+        switch (timeDimension) {
+            case "day":
+                queryWrapper.select("DATE_FORMAT(createTime, '%Y-%m-%d') as period", "count(*) as count");
+                break;
+            case "week":
+                queryWrapper.select("YEARWEEK(createTime) as period", "count(*) as count");
+                break;
+            case "month":
+                queryWrapper.select("DATE_FORMAT(createTime, '%Y-%m') as period", "count(*) as count");
+                break;
+            default:
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "不支持的时间维度");
+        }
+        //分组排序
+        queryWrapper.groupBy("period").orderByAsc("period");
+        // 查询
+        List<Map<String, Object>> queryResult = pictureService.getBaseMapper().selectMaps(queryWrapper);
+
+        return queryResult.stream()
+                .map(result -> {
+                    String period = Optional.ofNullable(result.get("period"))
+                            .map(Object::toString)
+                            .orElse("");
+                    Long count = Optional.ofNullable(result.get("count"))
+                            .map(val -> ((Number) val).longValue())
+                            .orElse(0L);
+                    return new SpaceUserAnalyzeResponse(period, count);
+                })
+                .collect(Collectors.toList());
+
+    }
+
+    @Override
+    public List<Space> getSpaceRankAnalyze(SpaceRankAnalyzeRequest spaceRankAnalyzeRequest, User loginUser) {
+        ThrowUtils.throwIf(spaceRankAnalyzeRequest == null, ErrorCode.PARAMS_ERROR);
+
+        // 检查权限，仅管理员可以查看
+        ThrowUtils.throwIf(!userService.isAdmin(loginUser), ErrorCode.NO_AUTH_ERROR);
+        // 构造查询条件
+        QueryWrapper<Space> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id", "spaceName", "userId", "totalSize")
+                .orderByDesc("totalSize")
+                .last("limit " + spaceRankAnalyzeRequest.getTopN()); // 取前 N 名
+
+        // 查询并封装结果
+        return spaceService.list(queryWrapper);
     }
 }
