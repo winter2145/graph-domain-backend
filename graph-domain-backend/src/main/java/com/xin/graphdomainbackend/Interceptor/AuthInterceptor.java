@@ -1,4 +1,4 @@
-package com.xin.graphdomainbackend.aop;
+package com.xin.graphdomainbackend.Interceptor;
 
 import com.xin.graphdomainbackend.annotation.AuthCheck;
 import com.xin.graphdomainbackend.exception.BusinessException;

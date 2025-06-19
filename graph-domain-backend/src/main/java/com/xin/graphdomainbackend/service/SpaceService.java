@@ -99,4 +99,5 @@ public interface SpaceService extends IService<Space> {
      */
     void checkPrivateSpaceAuth(User loginUser, Space space);
 
+
 }

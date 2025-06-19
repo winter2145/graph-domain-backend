@@ -15,6 +15,7 @@ import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.space.SpaceAddRequest;
 import com.xin.graphdomainbackend.model.dto.space.SpaceQueryRequest;
 import com.xin.graphdomainbackend.model.entity.Space;
+import com.xin.graphdomainbackend.model.entity.SpaceUser;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.entity.es.EsSpace;
 import com.xin.graphdomainbackend.model.enums.SpaceLevelEnum;
@@ -348,6 +349,8 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
     }
+
+
 }
 
 
