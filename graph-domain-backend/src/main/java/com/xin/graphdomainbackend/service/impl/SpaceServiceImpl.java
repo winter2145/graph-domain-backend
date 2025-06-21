@@ -107,7 +107,8 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
                     throw new BusinessException(ErrorCode.OPERATION_ERROR, "每个用户只能创建一个私有空间");
                 }
             }
-            // 5.保存空间
+            // 5.填充信息，保存空间
+            this.fillSpaceBySpaceLevel(space);
             space.setUserId(loginUser.getId());
 
             boolean result = this.save(space);
@@ -126,7 +127,6 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
                 lock.unlock();
             }
         }
-
     }
 
     @Override
