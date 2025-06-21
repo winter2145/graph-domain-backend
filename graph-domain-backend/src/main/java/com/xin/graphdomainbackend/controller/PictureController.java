@@ -16,9 +16,11 @@ import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.enums.PictureReviewStatusEnum;
+import com.xin.graphdomainbackend.model.vo.PictureTagCategory;
 import com.xin.graphdomainbackend.model.vo.PictureVO;
 import com.xin.graphdomainbackend.service.PictureService;
 import com.xin.graphdomainbackend.service.SpaceService;
+import com.xin.graphdomainbackend.service.TagService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ResultUtils;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
@@ -44,6 +46,9 @@ public class PictureController {
 
     @Resource
     private SpaceService spaceService;
+
+    @Resource
+    private TagService tagService;
 
 
     /**
@@ -326,6 +331,12 @@ public class PictureController {
         return ResultUtils.success(result);
     }
 
+    @GetMapping("/tag_category")
+    public BaseResponse<PictureTagCategory> listPictureTagCategory() {
+        PictureTagCategory pictureTagCategory = new PictureTagCategory();
 
-
+        List<String> tagList = tagService.listTag();
+        pictureTagCategory.setTagList(tagList);
+        return ResultUtils.success(pictureTagCategory);
+    }
 }

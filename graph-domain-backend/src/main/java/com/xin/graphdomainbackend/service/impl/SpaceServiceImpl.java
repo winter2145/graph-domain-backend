@@ -109,6 +109,7 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
             }
             // 5.保存空间
             space.setUserId(loginUser.getId());
+
             boolean result = this.save(space);
             if (!result) {
                 throw new BusinessException(ErrorCode.OPERATION_ERROR, "空间创建失败");
