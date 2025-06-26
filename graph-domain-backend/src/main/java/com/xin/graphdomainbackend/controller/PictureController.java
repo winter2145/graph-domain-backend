@@ -4,6 +4,7 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xin.graphdomainbackend.annotation.AuthCheck;
+import com.xin.graphdomainbackend.annotation.LoginCheck;
 import com.xin.graphdomainbackend.api.imagesearch.ImageSearchByCrawlerApi;
 import com.xin.graphdomainbackend.api.imagesearch.model.ImageSearchResult;
 import com.xin.graphdomainbackend.common.BaseResponse;
@@ -338,5 +339,14 @@ public class PictureController {
         List<String> tagList = tagService.listTag();
         pictureTagCategory.setTagList(tagList);
         return ResultUtils.success(pictureTagCategory);
+    }
+
+    /**
+     * 关注列表照片
+     */
+    @PostMapping("/follow")
+    @LoginCheck
+    public BaseResponse<Page<PictureVO>> getFollowPicture(@RequestBody PictureQueryRequest pictureQueryRequest) {
+        return ResultUtils.success(pictureService.getFollowPicture(pictureQueryRequest));
     }
 }

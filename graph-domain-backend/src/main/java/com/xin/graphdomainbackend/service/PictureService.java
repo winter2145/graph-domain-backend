@@ -171,4 +171,10 @@ public interface PictureService extends IService<Picture> {
      */
     boolean editPictureByBatch(PictureEditByBatchRequest pictureEditByBatchRequest, User loginUser);
 
+    /**
+     * 获取关注者们的图片
+     * @param pictureQueryRequest 图片查询请求
+     */
+    Page<PictureVO> getFollowPicture(PictureQueryRequest pictureQueryRequest);
+
 }

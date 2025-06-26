@@ -218,11 +218,5 @@ CREATE TABLE user_follows
 CREATE INDEX idx_followStatus
     ON user_follows (followStatus);
 
-CREATE INDEX idx_followerId
-    ON user_follows (followerId);
-
-CREATE INDEX idx_followingId
-    ON user_follows (followingId);
-
-CREATE INDEX idx_isDelete
-    ON user_follows (isDelete);
+ALTER TABLE user_follows ADD INDEX idx_follower (followerId, followStatus);
+ALTER TABLE user_follows ADD INDEX idx_following (followingId, followStatus);

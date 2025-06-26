@@ -5,7 +5,9 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.db.PageResult;
 import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -34,6 +36,7 @@ import com.xin.graphdomainbackend.model.vo.PictureVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.service.PictureService;
 import com.xin.graphdomainbackend.service.SpaceService;
+import com.xin.graphdomainbackend.service.UserFollowsService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ColorSimilarUtils;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
@@ -48,7 +51,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
@@ -99,6 +105,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private CosClientConfig cosClientConfig;
+
+    @Resource
+    private UserFollowsService userFollowsService;
 
     @Override
     public void validPicture(Picture picture) {
@@ -988,6 +997,46 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             return null;
         });
         return true;
+    }
+
+    @Override
+    public Page<PictureVO> getFollowPicture(PictureQueryRequest pictureQueryRequest) {
+        ThrowUtils.throwIf(pictureQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        ServletRequestAttributes attribute = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
+        HttpServletRequest request = attribute.getRequest();
+
+        Page<Picture> page = new Page<>(pictureQueryRequest.getCurrent(), pictureQueryRequest.getPageSize());
+
+        // 根据当前用户id，查询用户的关注列表所有用户id
+        User loginUser = userService.getLoginUser(request);
+        List<Long> followList = userFollowsService.getFollowList(loginUser.getId());
+
+        if (CollectionUtils.isEmpty(followList)) {
+            return new Page<>();
+        }
+
+        // 构建查询条件 (关注者们的图片)
+        LambdaQueryWrapper<Picture> pictureLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        pictureLambdaQueryWrapper
+                .in(Picture::getUserId, followList)
+                .eq(Picture::getReviewStatus, PictureReviewStatusEnum.PASS.getValue())
+                .and(
+                        picture -> picture.isNull(Picture::getSpaceId)
+                                .or()
+                                .eq(Picture::getSpaceId, 0)
+                ).orderByDesc(Picture::getEditTime);
+
+        // 查询数据库
+        Page<Picture> picturePage = this.page(page, pictureLambdaQueryWrapper);
+
+        // 查询脱敏图片信息
+        List<Picture> pictureList = picturePage.getRecords();
+        List<PictureVO> pictureVOList = pictureList.stream().map(this::getPictureVO).collect(Collectors.toList());
+
+        Page<PictureVO> pictureVOPage = new Page<>(picturePage.getCurrent(), picturePage.getSize(), picturePage.getTotal());
+        pictureVOPage.setRecords(pictureVOList);
+
+        return pictureVOPage;
     }
 
     private void fillPictureWithNameRule(List<Picture> pictureList, String nameRule) {
