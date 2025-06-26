@@ -4,6 +4,7 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xin.graphdomainbackend.annotation.AuthCheck;
+import com.xin.graphdomainbackend.annotation.LoginCheck;
 import com.xin.graphdomainbackend.api.imagesearch.ImageSearchByCrawlerApi;
 import com.xin.graphdomainbackend.api.imagesearch.model.ImageSearchResult;
 import com.xin.graphdomainbackend.common.BaseResponse;
@@ -16,9 +17,11 @@ import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.enums.PictureReviewStatusEnum;
+import com.xin.graphdomainbackend.model.vo.PictureTagCategory;
 import com.xin.graphdomainbackend.model.vo.PictureVO;
 import com.xin.graphdomainbackend.service.PictureService;
 import com.xin.graphdomainbackend.service.SpaceService;
+import com.xin.graphdomainbackend.service.TagService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ResultUtils;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
@@ -44,6 +47,9 @@ public class PictureController {
 
     @Resource
     private SpaceService spaceService;
+
+    @Resource
+    private TagService tagService;
 
 
     /**
@@ -326,6 +332,21 @@ public class PictureController {
         return ResultUtils.success(result);
     }
 
+    @GetMapping("/tag_category")
+    public BaseResponse<PictureTagCategory> listPictureTagCategory() {
+        PictureTagCategory pictureTagCategory = new PictureTagCategory();
 
+        List<String> tagList = tagService.listTag();
+        pictureTagCategory.setTagList(tagList);
+        return ResultUtils.success(pictureTagCategory);
+    }
 
+    /**
+     * 关注列表照片
+     */
+    @PostMapping("/follow")
+    @LoginCheck
+    public BaseResponse<Page<PictureVO>> getFollowPicture(@RequestBody PictureQueryRequest pictureQueryRequest) {
+        return ResultUtils.success(pictureService.getFollowPicture(pictureQueryRequest));
+    }
 }

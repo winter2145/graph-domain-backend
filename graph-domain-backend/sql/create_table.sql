@@ -185,3 +185,38 @@ CREATE TABLE space_user
         UNIQUE (spaceId, userId)
 )
     COMMENT '空间用户关联' COLLATE = utf8mb4_unicode_ci;
+
+-- 标签表
+CREATE TABLE tag
+(
+    id         bigint AUTO_INCREMENT COMMENT '标签id'
+        PRIMARY KEY,
+    tagName    varchar(256)                       NOT NULL COMMENT '标签名称',
+    createTime datetime DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    editTime   datetime DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '编辑时间',
+    updateTime datetime DEFAULT CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    isDelete   tinyint  DEFAULT 0                 NOT NULL COMMENT '是否删除'
+)
+    COMMENT '标签' COLLATE = utf8mb4_unicode_ci;
+
+-- 关注列表
+CREATE TABLE user_follows
+(
+    followId            bigint AUTO_INCREMENT
+        PRIMARY KEY,
+    followerId          bigint                             NOT NULL COMMENT '关注者的用户 ID',
+    followingId         bigint                             NOT NULL COMMENT '被关注者的用户 ID',
+    followStatus        tinyint                            NULL COMMENT '关注状态，0 表示取消关注，1 表示关注',
+    isMutual            tinyint                            NULL COMMENT '是否为双向关注，0 表示单向，1 表示双向',
+    lastInteractionTime datetime                           NULL COMMENT '最后交互时间',
+    createTime          datetime DEFAULT CURRENT_TIMESTAMP NULL COMMENT '关注关系创建时间，默认为当前时间',
+    editTime            datetime DEFAULT CURRENT_TIMESTAMP NULL COMMENT '关注关系编辑时间，默认为当前时间',
+    updateTime          datetime DEFAULT CURRENT_TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '关注关系更新时间，更新时自动更新',
+    isDelete            tinyint  DEFAULT 0                 NULL COMMENT '是否删除，0 表示未删除，1 表示已删除'
+);
+
+CREATE INDEX idx_followStatus
+    ON user_follows (followStatus);
+
+ALTER TABLE user_follows ADD INDEX idx_follower (followerId, followStatus);
+ALTER TABLE user_follows ADD INDEX idx_following (followingId, followStatus);
