@@ -47,4 +47,11 @@ public interface UserFollowsService extends IService<UserFollows> {
      * @param id 目标用户id
      */
     List<Long> getFollowList(Long id);
+
+    /**
+     * 查询两者是否互关
+     * @param userId 本人
+     * @param targetUserId 目标用户
+     */
+    Boolean isMutualRelations(Long userId, Long targetUserId);
 }

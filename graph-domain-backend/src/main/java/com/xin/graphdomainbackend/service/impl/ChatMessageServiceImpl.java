@@ -245,6 +245,17 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
         return response;
     }
 
+    @Override
+    public boolean hasSentMessage(Long senderId, Long receiverId) {
+        return this.lambdaQuery()
+                .eq(ChatMessage::getSenderId, senderId)
+                .eq(ChatMessage::getReceiverId, receiverId)
+                .eq(ChatMessage::getType, 1) //私聊
+                .last("limit 1")
+                .oneOpt() // 去null
+                .isPresent(); // 值不为null，则true
+    }
+
     /**
      * ChatMessage -> ChatMessageVO
      * @param message

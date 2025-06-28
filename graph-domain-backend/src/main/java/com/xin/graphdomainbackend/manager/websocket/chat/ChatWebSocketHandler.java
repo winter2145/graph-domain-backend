@@ -4,6 +4,8 @@ import cn.hutool.core.collection.ConcurrentHashSet;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xin.graphdomainbackend.constant.RedisConstant;
 import com.xin.graphdomainbackend.constant.WebSocketConstant;
+import com.xin.graphdomainbackend.exception.BusinessException;
+import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.manager.websocket.chat.disruptor.ChatEventProducer;
 import com.xin.graphdomainbackend.model.dto.message.chat.ChatHistoryMessageRequest;
 import com.xin.graphdomainbackend.model.dto.message.chat.ChatMessageSendRequest;
@@ -13,9 +15,11 @@ import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.model.vo.message.chat.ChatHistoryPageResponse;
 import com.xin.graphdomainbackend.model.vo.message.chat.ChatMessageVO;
 import com.xin.graphdomainbackend.service.ChatMessageService;
+import com.xin.graphdomainbackend.service.PrivateChatService;
 import com.xin.graphdomainbackend.service.SpaceUserService;
 import com.xin.graphdomainbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
+import net.bytebuddy.implementation.bytecode.Throw;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -52,6 +56,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     @Resource
     @Lazy
     private ChatEventProducer chatEventProducer;
+
+    @Resource
+    private PrivateChatService privateChatService;
 
     // 在线用户登记簿 1:1
     private static final Map<Long, WebSocketSession> userSessions = new ConcurrentHashMap<>();
@@ -297,7 +304,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 response.put(WebSocketConstant.ONLINE_USERS, onlineUsers);
                 response.put(WebSocketConstant.PICTURE_ID, pictureId);
             } else if (privateChatId != null) {
-                targetSessions = spaceSessions.get(privateChatId);
+                targetSessions = privateChatSessions.get(privateChatId);
 
                 //获取该空间内的在线用户
                 Set<User> onlineUsers  = getOnlineUsers(targetSessions);
@@ -379,7 +386,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         chatMessageService.save(chatMessage);
         // 登录消息后清楚缓存
         deleteRedis(chatMessage);
-
+        privateChatService.updatePrivateChatWithNewMessage(chatMessage, chatMessage.getPrivateChatId(), user);
         // 发送消息
         try {
             sendToPrivateChat(chatMessage);
@@ -543,5 +550,15 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             vo.setSenderAvatar(sender.getUserAvatar());
         }
         return vo;
+    }
+
+    /**
+     * 获取私聊聊天室的在线人数集合
+     */
+    public static Set<WebSocketSession> getPrivateChatSessions(Long privateChatId) {
+        if (privateChatId == null) {
+            return null;
+        }
+        return privateChatSessions.get(privateChatId);
     }
 }

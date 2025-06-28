@@ -167,6 +167,20 @@ public class UserFollowsServiceImpl extends ServiceImpl<UserFollowsMapper, UserF
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public Boolean isMutualRelations(Long userId, Long targetUserId) {
+        ThrowUtils.throwIf(userId == null|| targetUserId == null, ErrorCode.PARAMS_ERROR);
+        return lambdaQuery().and(
+                wrap -> wrap.eq(UserFollows::getFollowerId, userId)
+                .eq(UserFollows::getFollowingId, targetUserId)
+                .eq(UserFollows::getIsMutual, 1)
+                .or()
+                .eq(UserFollows::getFollowerId, targetUserId)
+                .eq(UserFollows::getFollowingId, userId)
+        ).count() > 1;
+
+    }
+
     /**
      * 构建最终分页结果
      *
