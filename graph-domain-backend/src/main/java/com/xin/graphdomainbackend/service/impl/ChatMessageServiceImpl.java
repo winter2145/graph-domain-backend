@@ -230,7 +230,7 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
 
     @Override
     public ChatHistoryPageResponse getPrivateChatHistoryVO(long privateChatId, long current, long size) {
-        Page<ChatMessage> chatMessagePage = this.getSpaceChatHistory(privateChatId, current, size);
+        Page<ChatMessage> chatMessagePage = this.getPrivateChatHistory(privateChatId, current, size);
 
         List<ChatMessageVO> chatMessageVOList = chatMessagePage.getRecords().stream()
                 .map(this::convertToVO)

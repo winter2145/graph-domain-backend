@@ -43,4 +43,35 @@ public interface PrivateChatService extends IService<PrivateChat> {
      * @param loginUser 登录用户
      */
     Page<PrivateChatVO> getPrivateChatByPage(PrivateChatQueryRequest privateChatQueryRequest, User loginUser);
+
+    /**
+     * 清除用户的未读消息数
+     * @param userId 用户ID
+     * @param targetUserId 目标用户ID
+     * @param isSender 是否清除用户的未读消息数（true清除用户的，false清除目标用户的）
+     */
+    void clearUnreadCount(long userId, long targetUserId, boolean isSender);
+
+    /**
+     * 删除聊天
+     * @param privateChatId 私人聊天id
+     * @param loginUser 登录用户
+     */
+    boolean deletePrivateChat(Long privateChatId, User loginUser);
+
+    /**
+     * 更新聊天名称
+     * @param privateChatId 私人聊天 id
+     * @param chatName 聊天名称
+     * @param loginUser 登录用户
+     */
+    void updateChatName(Long privateChatId, String chatName, User loginUser);
+
+    /**
+     * 更新聊天类型
+     * @param userId 用户id
+     * @param targetUserId 目标用户id
+     * @param isFriend 是否互关
+     */
+    void updateChatType(Long userId, Long targetUserId, Boolean isFriend);
 }

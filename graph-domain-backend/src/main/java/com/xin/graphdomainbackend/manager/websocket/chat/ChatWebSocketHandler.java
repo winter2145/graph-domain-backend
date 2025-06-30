@@ -1,6 +1,7 @@
 package com.xin.graphdomainbackend.manager.websocket.chat;
 
 import cn.hutool.core.collection.ConcurrentHashSet;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xin.graphdomainbackend.constant.RedisConstant;
 import com.xin.graphdomainbackend.constant.WebSocketConstant;
@@ -11,15 +12,16 @@ import com.xin.graphdomainbackend.model.dto.message.chat.ChatHistoryMessageReque
 import com.xin.graphdomainbackend.model.dto.message.chat.ChatMessageSendRequest;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.entity.websocket.ChatMessage;
+import com.xin.graphdomainbackend.model.entity.websocket.PrivateChat;
 import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.model.vo.message.chat.ChatHistoryPageResponse;
 import com.xin.graphdomainbackend.model.vo.message.chat.ChatMessageVO;
 import com.xin.graphdomainbackend.service.ChatMessageService;
 import com.xin.graphdomainbackend.service.PrivateChatService;
 import com.xin.graphdomainbackend.service.SpaceUserService;
+import com.xin.graphdomainbackend.service.UserFollowsService;
 import com.xin.graphdomainbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
-import net.bytebuddy.implementation.bytecode.Throw;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -59,6 +61,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     @Resource
     private PrivateChatService privateChatService;
+    
+    @Resource
+    private UserFollowsService userFollowsService;
 
     // 在线用户登记簿 1:1
     private static final Map<Long, WebSocketSession> userSessions = new ConcurrentHashMap<>();
@@ -88,7 +93,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
 
         try {
-            // 保存用户session
+            // 保存用户session - 这里是全局用户会话记录，用于判断用户是否在线
             userSessions.put(user.getId(), session);
 
             // 图片聊天室
@@ -133,6 +138,13 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         try {
+            // 处理历史消息加载请求
+            String payload = message.getPayload();
+            if (payload != null && payload.contains("\"type\":\"loadMore\"")) {
+                handleLoadMoreMessage(session, payload);
+                return;
+            }
+            
             // 1. 反序列化请求类 json -> Java
             ChatMessageSendRequest request = webSocketObjectMapper.readValue(message.getPayload(), ChatMessageSendRequest.class);
             User user = (User) session.getAttributes().get(WebSocketConstant.USER);
@@ -155,6 +167,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             chatMessage.setPrivateChatId(request.getPrivateChatId());
             chatMessage.setReplyId(request.getReplyId());
             chatMessage.setRootId(request.getRootId());
+            chatMessage.setReceiverId(request.getReceiverId());
 
             // 3.判断消息类型和目标ID
             Integer messageType = null;
@@ -162,6 +175,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             if (request.getPrivateChatId() != null) {
                 messageType = 1;
                 targetId = request.getPrivateChatId();
+                
+                // 校验私聊权限（未互关只能发一条）
+                if (!checkPrivateChatPermission(user.getId(), targetId, session)) {
+                    throw new BusinessException(ErrorCode.OPERATION_ERROR, "对方未关注前，只能发送一条消息"); // 权限校验不通过，直接返回
+                }
             } else if (request.getPictureId() != null) {
                 messageType = 2;
                 targetId = request.getPictureId();
@@ -188,12 +206,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         Long spaceId = (Long) session.getAttributes().get("spaceId");
         Long privateChatId = (Long) session.getAttributes().get("privateChatId");
 
-        // 移除用户session
-        if (user != null) {
-            userSessions.remove(user.getId());
-        }
-
-        // 如果是私聊，移除私聊session
+        // 注意：这里不立即移除用户session，因为用户可能只是关闭了聊天窗口，但仍在网站上
+        // 只有在明确的登出操作时，才应该移除全局在线状态
+        // 为了简化，这里只从特定聊天室中移除会话，保留全局会话
         if (privateChatId != null) {
             Set<WebSocketSession> sessions = privateChatSessions.get(privateChatId);
             if (sessions != null) {
@@ -284,10 +299,82 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     /**
-     * 根据场景广播在线用户信息
-     * @param pictureId 图片id
-     * @param spaceId 空间id
-     * @param privateChatId 私人聊天id
+     * 处理加载更多历史消息的请求
+     */
+    private void handleLoadMoreMessage(WebSocketSession session, String payload) throws IOException {
+        try {
+            JsonNode jsonNode = webSocketObjectMapper.readTree(payload);
+            Long privateChatId = jsonNode.has("privateChatId") ? jsonNode.get("privateChatId").asLong() : null;
+            Long pictureId = jsonNode.has("pictureId") ? jsonNode.get("pictureId").asLong() : null;
+            Long spaceId = jsonNode.has("spaceId") ? jsonNode.get("spaceId").asLong() : null;
+            int page = jsonNode.has("page") ? jsonNode.get("page").asInt() : 1;
+            int pageSize = jsonNode.has("pageSize") ? jsonNode.get("pageSize").asInt() : 20;
+            
+            ChatHistoryPageResponse history = null;
+            
+            if (privateChatId != null) {
+                history = chatMessageService.getPrivateChatHistoryVO(privateChatId, (long) page, (long) pageSize);
+            } else if (pictureId != null) {
+                history = chatMessageService.getPictureChatHistoryVO(pictureId, (long) page, (long) pageSize);
+            } else if (spaceId != null) {
+                history = chatMessageService.getSpaceChatHistoryVO(spaceId, (long) page, (long) pageSize);
+            }
+            
+            if (history != null) {
+                session.sendMessage(new TextMessage(webSocketObjectMapper.writeValueAsString(history)));
+            }
+        } catch (Exception e) {
+            log.error("加载历史消息失败", e);
+            sendErrorMessage(session, "加载历史消息失败");
+        }
+    }
+    
+    /**
+     * 校验私聊权限（未互关只能发一条）
+     * @return 是否允许发送
+     */
+    private boolean checkPrivateChatPermission(Long senderId, Long privateChatId, WebSocketSession session) throws IOException {
+        try {
+            // 获取私聊对象
+            PrivateChat privateChat = privateChatService.getById(privateChatId);
+            if (privateChat == null) {
+                sendErrorMessage(session, "私聊不存在");
+                return false;
+            }
+            
+            // 确定接收者ID
+            Long receiverId;
+            if (privateChat.getUserId().equals(senderId)) {
+                receiverId = privateChat.getTargetUserId();
+            } else if (privateChat.getTargetUserId().equals(senderId)) {
+                receiverId = privateChat.getUserId();
+            } else {
+                sendErrorMessage(session, "您不是该私聊的参与者");
+                return false;
+            }
+            
+            // 检查是否互关
+            boolean isMutual = userFollowsService.isMutualRelations(senderId, receiverId);
+            if (!isMutual) {
+                // 检查是否已经发送过消息
+                boolean hasSent = chatMessageService.hasSentMessage(senderId, receiverId);
+                if (hasSent) {
+                    sendErrorMessage(session, "单向关注只能发送一条消息");
+                    return false;
+                }
+            }
+            
+            return true;
+        } catch (Exception e) {
+            log.error("校验私聊权限失败", e);
+            sendErrorMessage(session, "校验权限失败");
+            return false;
+        }
+    }
+
+    /**
+     * 广播在线用户信息
+     * 为私聊添加特殊处理，使用全局在线状态
      */
     private void broadcastOnlineUsers(Long pictureId, Long spaceId, Long privateChatId) {
         try {
@@ -297,28 +384,59 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             Set<WebSocketSession> targetSessions = null;
             if (pictureId != null) {
                 targetSessions = pictureSessions.get(pictureId);
-
                 // 获取该图片聊天室的在线用户
-                Set<User> onlineUsers  = getOnlineUsers(targetSessions);
+                Set<User> onlineUsers = getOnlineUsers(targetSessions);
                 response.put(WebSocketConstant.ONLINE_COUNT, onlineUsers.size());
                 response.put(WebSocketConstant.ONLINE_USERS, onlineUsers);
                 response.put(WebSocketConstant.PICTURE_ID, pictureId);
             } else if (privateChatId != null) {
                 targetSessions = privateChatSessions.get(privateChatId);
-
-                //获取该空间内的在线用户
-                Set<User> onlineUsers  = getOnlineUsers(targetSessions);
-                response.put(WebSocketConstant.ONLINE_COUNT, onlineUsers.size());
-                response.put(WebSocketConstant.ONLINE_USERS, onlineUsers);
-                response.put(WebSocketConstant.SPACE_ID, spaceId);
+                
+                // 获取私聊信息，找到参与者
+                PrivateChat privateChat = privateChatService.getById(privateChatId);
+                if (privateChat != null) {
+                    // 获取该私聊的在线用户
+                    Set<User> chatUsers = getOnlineUsers(targetSessions);
+                    
+                    // 确保两个参与者都在列表中
+                    User user1 = userService.getById(privateChat.getUserId());
+                    User user2 = userService.getById(privateChat.getTargetUserId());
+                    
+                    // 创建完整的用户列表
+                    Set<User> completeUserList = new HashSet<>();
+                    
+                    // 添加已在聊天室的用户
+                    if (!chatUsers.isEmpty()) {
+                        completeUserList.addAll(chatUsers);
+                    }
+                    
+                    // 添加可能不在聊天室但在系统中的用户
+                    if (user1 != null && !containsUser(completeUserList, user1.getId())) {
+                        completeUserList.add(createSafeUser(user1));
+                    }
+                    if (user2 != null && !containsUser(completeUserList, user2.getId())) {
+                        completeUserList.add(createSafeUser(user2));
+                    }
+                    
+                    // 为所有用户设置在线状态
+                    for (User user : completeUserList) {
+                        if (user != null && user.getId() != null) {
+                            // 用户在userSessions中有记录即视为在线
+                            boolean isUserOnline = userSessions.containsKey(user.getId());
+                            user.setUserRole(isUserOnline ? "online" : "offline");
+                        }
+                    }
+                    
+                    response.put(WebSocketConstant.ONLINE_COUNT, completeUserList.size());
+                    response.put(WebSocketConstant.ONLINE_USERS, completeUserList);
+                    response.put(WebSocketConstant.PRIVATE_CHAT_ID, privateChatId);
+                }
             } else if (spaceId != null) {
                 targetSessions = spaceSessions.get(spaceId);
-
-                //获取该空间内的在线用户
-                Set<User> onlineUsers  = getOnlineUsers(targetSessions);
+                // 获取该空间内的在线用户
+                Set<User> onlineUsers = getOnlineUsers(targetSessions);
                 // 获取空间所有成员
                 List<UserVO> allMembers = spaceUserService.getAllSpaceMembers(spaceId);
-
                 // 计算离线用户
                 Set<UserVO> offlineUsers = new HashSet<>();
                 for (UserVO member : allMembers) {
@@ -330,7 +448,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 }
                 response.put(WebSocketConstant.ONLINE_COUNT, onlineUsers.size());
                 response.put(WebSocketConstant.ONLINE_USERS, onlineUsers);
-                response.put(WebSocketConstant.PRIVATE_CHAT_ID, privateChatId);
+                response.put(WebSocketConstant.SPACE_ID, spaceId);
             } else {
                 return;
             }
@@ -346,6 +464,13 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         } catch (Exception e) {
             log.error("广播在线用户信息失败", e);
         }
+    }
+
+    /**
+     * 检查用户列表中是否包含指定ID的用户
+     */
+    private boolean containsUser(Set<User> users, Long userId) {
+        return users.stream().anyMatch(u -> u.getId().equals(userId));
     }
 
     /**
@@ -382,8 +507,10 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     public void handlePrivateChatMessage(ChatMessage chatMessage, WebSocketSession session)
             throws IOException {
         User user = (User) session.getAttributes().get(WebSocketConstant.USER);
+        log.error("chatmessage为 ：{}", chatMessage);
         // 保存消息
         chatMessageService.save(chatMessage);
+
         // 登录消息后清楚缓存
         deleteRedis(chatMessage);
         privateChatService.updatePrivateChatWithNewMessage(chatMessage, chatMessage.getPrivateChatId(), user);
@@ -455,15 +582,21 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         ChatHistoryMessageRequest chatHistoryMessageRequest = new ChatHistoryMessageRequest();
         Long size = chatHistoryMessageRequest.getSize();
         Long current = chatHistoryMessageRequest.getCurrent();
+        String cacheKey = "";
         if (message.getPictureId() != null) {
             id = message.getPictureId();
+            cacheKey = RedisConstant.PICTURE_CHAT_HISTORY_PREFIX
+                    + id + ":" + current + ":" + size;
         } else if (message.getPrivateChatId() != null) {
             id = message.getPrivateChatId();
+            cacheKey = RedisConstant.PRIVATE_CHAT_HISTORY_PREFIX
+                    + id + ":" + current + ":" + size;
         } else if (message.getSpaceId() != null) {
             id = message.getSpaceId();
+            cacheKey = RedisConstant.SPACE_CHAT_HISTORY_PREFIX
+                    + id + ":" + current + ":" + size;
         }
-        String cacheKey = RedisConstant.PICTURE_CHAT_HISTORY_PREFIX
-                + id + ":" + current + ":" + size;
+
         stringRedisTemplate.delete(cacheKey);
     }
 
@@ -481,7 +614,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             String messageStr = webSocketObjectMapper.writeValueAsString(vo);
             for (WebSocketSession session : sessions) {
                 if (session.isOpen()) {
-                    session.sendMessage(new TextMessage(messageStr));
+                    try {
+                        session.sendMessage(new TextMessage(messageStr));
+                    } catch (IOException e) {
+                        log.error("发送私聊消息失败: {}", e.getMessage());
+                    }
                 }
             }
         }

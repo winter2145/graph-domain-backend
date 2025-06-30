@@ -1,6 +1,5 @@
 package com.xin.graphdomainbackend.model.vo.message.chat;
 
-import com.xin.graphdomainbackend.model.vo.message.chat.ChatMessageVO;
 import lombok.Data;
 
 import java.io.Serializable;

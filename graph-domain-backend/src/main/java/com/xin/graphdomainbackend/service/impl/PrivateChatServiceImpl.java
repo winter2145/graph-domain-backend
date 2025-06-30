@@ -5,16 +5,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.xin.graphdomainbackend.config.WebSocketConfig;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.manager.websocket.chat.ChatWebSocketHandler;
 import com.xin.graphdomainbackend.mapper.PrivateChatMapper;
-
 import com.xin.graphdomainbackend.model.dto.privatechat.PrivateChatQueryRequest;
 import com.xin.graphdomainbackend.model.dto.userfollows.UserFollowsIsFollowsRequest;
 import com.xin.graphdomainbackend.model.entity.User;
-import com.xin.graphdomainbackend.model.entity.UserFollows;
 import com.xin.graphdomainbackend.model.entity.websocket.ChatMessage;
 import com.xin.graphdomainbackend.model.entity.websocket.PrivateChat;
 import com.xin.graphdomainbackend.model.vo.UserVO;
@@ -25,12 +22,11 @@ import com.xin.graphdomainbackend.service.UserFollowsService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
 import org.springframework.beans.BeanUtils;
-import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.socket.WebSocketSession;
 
 import javax.annotation.Resource;
-import java.awt.geom.QuadCurve2D;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -52,41 +48,7 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
     @Resource
     private UserService userService;
 
-    /*@Override
-    public PrivateChat createOrUpdatePrivateChat(long userId, long targetUserId, String lastMessage) {
-        // 查找现有私聊（检查两个方向）
-        LambdaQueryWrapper<PrivateChat> queryWrapper = new LambdaQueryWrapper<>();
-        // eg:(A=1 AND B=2 OR C=3 AND D=4)
-        queryWrapper
-                .and(
-                        wrap -> wrap
-                .eq(PrivateChat::getUserId, userId)
-                .eq(PrivateChat::getTargetUserId, targetUserId)
-                .or()
-                .eq(PrivateChat::getUserId, targetUserId)
-                .eq(PrivateChat::getTargetUserId, userId)
-                );
-        PrivateChat privateChat = this.getOne(queryWrapper);
 
-        if (privateChat == null) { // 不存在私人聊天，则新建
-            privateChat = new PrivateChat();
-            privateChat.setUserId(userId);
-            privateChat.setTargetUserId(targetUserId);
-            privateChat.setUserUnreadCount(0);
-            privateChat.setTargetUserUnreadCount(0);
-
-            // 检查是否为二者是否为互关
-            Boolean isFriend = userFollowsService.isMutualRelations(userId, targetUserId);
-
-            // 互关为1，否则为私信
-            privateChat.setChatType(isFriend ? 1 : 0);
-        } else {
-
-        }
-
-
-        return null;
-    }*/
     @Override
     public PrivateChatVO sendPrivateMessage(long senderId, long receiverId, String content) {
         // 1. 权限判断
@@ -189,41 +151,6 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
         return queryWrapper;
     }
 
-    /*
-    @Override
-    public Page<PrivateChatVO> getPrivateChatByPage(PrivateChatQueryRequest privateChatQueryRequest, User loginUser) {
-        ThrowUtils.throwIf(privateChatQueryRequest == null || loginUser == null, ErrorCode.PARAMS_ERROR);
-        long current = privateChatQueryRequest.getCurrent();
-        long size = privateChatQueryRequest.getPageSize();
-
-        Page<PrivateChatVO> chatPageVO = new Page<>(current, size);
-
-        // 根据当前用户 构建查询语句
-        QueryWrapper<PrivateChat> queryWrapper = this.getQueryWrapper(privateChatQueryRequest, loginUser);
-
-        // 查询相关的聊天
-        Page<PrivateChat> page = this.page( new Page<>(current, size), queryWrapper);
-
-        List<PrivateChat> records = page.getRecords();
-
-        assert loginUser != null;
-        Long loginUserId = loginUser.getId();
-
-        List<PrivateChatVO> collect = records.stream()
-                .map(privateChat -> {
-                    PrivateChatVO privateChatVO = getPrivateChatVO(privateChat);
-                    privateChatVO = fillSender(loginUserId, privateChat.getUserId(), privateChatVO);
-                    return privateChatVO;
-                })
-        .collect(Collectors.toList());
-
-        chatPageVO.setRecords(collect);
-
-        return chatPageVO;
-
-    }
-    */
-
     @Override
     public Page<PrivateChatVO> getPrivateChatByPage(PrivateChatQueryRequest privateChatQueryRequest, User loginUser) {
         ThrowUtils.throwIf(privateChatQueryRequest == null || loginUser == null, ErrorCode.PARAMS_ERROR);
@@ -235,11 +162,13 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
                 this.getQueryWrapper(privateChatQueryRequest, loginUser));
 
         // 提前收集所有需要查询的用户ID
-        List<Long> userIds = page.getRecords().stream()
-                .map(PrivateChat::getTargetUserId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .collect(Collectors.toList());
+        Set<Long> userIds = new HashSet<>();
+        page.getRecords().forEach(privateChat -> {
+            userIds.add(privateChat.getUserId()); // 发送者id
+            if (privateChat.getTargetUserId() != null) {
+                userIds.add(privateChat.getTargetUserId()); // 接收者id
+            }
+        });
 
         // 批量查询用户信息并转换为Map
         Map<Long, UserVO> userVOMap = userService.listByIds(userIds).stream()
@@ -250,19 +179,28 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
 
         Long loginUserId = loginUser.getId();
 
+
         // 转换记录
         List<PrivateChatVO> voList = page.getRecords().stream()
                 .map(privateChat -> {
                     PrivateChatVO vo = new PrivateChatVO();
                     BeanUtils.copyProperties(privateChat, vo);
 
-                    // 设置目标用户信息
-                    if (privateChat.getTargetUserId() != null) {
-                        vo.setTargetUser(userVOMap.get(privateChat.getTargetUserId()));
-                    }
-
                     // 设置发送者标识
-                    vo.setIsSender(loginUserId.equals(privateChat.getUserId()));
+                    boolean isSender = loginUserId.equals(privateChat.getUserId());
+                    vo.setIsSender(isSender);
+
+                    // 第一次消息发起者用户的VO
+                    UserVO currentTargetUerVO = userVOMap.get(privateChat.getUserId());
+
+                    // 根据是否发送者设置 目标用户信息
+                    if (isSender) {
+                        // 发送者：targetUser是 接收者
+                        vo.setTargetUser(userVOMap.get(privateChat.getTargetUserId()));
+                    } else {
+                        // 接收者：targetUser是 发送者
+                        vo.setTargetUser(currentTargetUerVO);
+                    }
 
                     return vo;
                 })
@@ -274,6 +212,91 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
         result.setTotal(page.getTotal());
 
         return result;
+    }
+
+    @Override
+    public void clearUnreadCount(long userId, long targetUserId, boolean isSender) {
+        // 如果当前用户不是发送者，需要交换userId和targetUserId
+        if (isSender) {
+            long temp = userId;
+            userId = targetUserId;
+            targetUserId = temp;
+        }
+
+        this.update()
+                .set("userUnreadCount", 0)  // 清除发送者的未读消息数
+                .eq("userId", userId)
+                .eq("targetUserId", targetUserId)
+                .update();
+
+        // 同时处理可能存在的反向记录
+        this.update()
+                .set("targetUserUnreadCount", 0)  // 清除接收者的未读消息数
+                .eq("userId", targetUserId)
+                .eq("targetUserId", userId)
+                .update();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean deletePrivateChat(Long privateChatId, User loginUser) {
+
+        // 1.获取私聊记录
+        PrivateChat privateChat = this.getById(privateChatId);
+        ThrowUtils.throwIf(privateChat == null, ErrorCode.NOT_FOUND_ERROR);
+
+        // 2.校验权限，只有私聊参与者才能删除
+        if (!privateChat.getUserId().equals(loginUser.getId())
+                && !privateChat.getTargetUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "您不是该私聊的参与者");
+        }
+
+        //3.删除私人聊天记录
+        boolean success = this.removeById(privateChatId);
+        if (success) {
+            // 4.删除相关的聊天消息
+            LambdaQueryWrapper<ChatMessage> chatMessageQuery = new LambdaQueryWrapper<>();
+            chatMessageQuery.eq(ChatMessage::getPrivateChatId, privateChatId)
+                    .eq(ChatMessage::getType, 1);
+            chatMessageService.remove(chatMessageQuery);
+        }
+        return success;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateChatName(Long privateChatId, String chatName, User loginUser) {
+        // 获取私聊记录
+        PrivateChat privateChat = this.getById(privateChatId);
+        if (privateChat == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "私聊记录不存在");
+        }
+
+        // 根据当前用户身份更新对应的聊天名称
+        if (privateChat.getUserId().equals(loginUser.getId())) {
+            privateChat.setUserChatName(chatName);
+        } else if (privateChat.getTargetUserId().equals(loginUser.getId())) {
+            privateChat.setTargetUserChatName(chatName);
+        } else {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "您不是该私聊的参与者");
+        }
+
+        this.updateById(privateChat);
+    }
+
+    @Override
+    public void updateChatType(Long userId, Long targetUserId, Boolean isFriend) {
+        int chatType = isFriend ? 1 : 0;
+
+        // 同时更新两个方向的记录
+        this.update() // 开始构建更新操作
+                .set("chatType", chatType)
+                .and(wrap -> wrap
+                        .eq("userId", userId).eq("targetUserId", targetUserId)
+                        .or()
+                        .eq("userId", targetUserId).eq("targetUserId", userId)
+                )
+                .update(); //执行 SQL 语句
     }
 
     private void checkCanSendMessage(long senderId, long receiverId) {
@@ -299,7 +322,10 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
 
         QueryWrapper<PrivateChat> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userId", userId)
-                .eq("targetUserId", targetUserId);
+                .eq("targetUserId", targetUserId)
+                .or()
+                .eq("userId", targetUserId)
+                .eq("targetUserId", userId);
 
         PrivateChat chat = this.getOne(queryWrapper);
 
@@ -359,18 +385,6 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
         }
         return privateChatVO;
     }
-
-    private PrivateChatVO fillSender(Long loginUserId, Long currentUserId, PrivateChatVO privateChatVO) {
-        ThrowUtils.throwIf(loginUserId == null || currentUserId == null, ErrorCode.PARAMS_ERROR);
-        boolean isSend = loginUserId.equals(currentUserId);
-        if (isSend) {
-            privateChatVO.setIsSender(true);
-        } else {
-            privateChatVO.setIsSender(false);
-        }
-        return privateChatVO;
-    }
-
 }
 
 

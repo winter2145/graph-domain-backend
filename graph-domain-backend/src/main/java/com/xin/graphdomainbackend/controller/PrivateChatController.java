@@ -73,4 +73,57 @@ public class PrivateChatController {
         return ResultUtils.success(privateChatByPage);
     }
 
+    /**
+     * 清空未读消息
+     */
+    @PostMapping("/clear_unread/{targetUserId}/{isSender}")
+    public BaseResponse<Boolean> clearUnreadCount(@PathVariable Long targetUserId,boolean isSender,
+                                                  HttpServletRequest request) {
+        ThrowUtils.throwIf(targetUserId == null || targetUserId <= 0, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        // 清除当前用户的未读消息数
+        privateChatService.clearUnreadCount(loginUser.getId(), targetUserId, isSender);
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 删除私聊
+     */
+    @PostMapping("/delete/{privateChatId}")
+    public BaseResponse<Boolean> deletePrivateChat(@PathVariable Long privateChatId,
+                                                   HttpServletRequest request) {
+        ThrowUtils.throwIf(privateChatId == null || privateChatId <= 0, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        boolean result = privateChatService.deletePrivateChat(privateChatId, loginUser);
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 修改私聊名称
+     */
+    @PostMapping("/update_name/{privateChatId}")
+    public BaseResponse<Boolean> updateChatName(@PathVariable Long privateChatId,
+                                                @RequestParam String chatName,
+                                                HttpServletRequest request) {
+        ThrowUtils.throwIf(privateChatId == null || privateChatId <= 0, ErrorCode.PARAMS_ERROR);
+        ThrowUtils.throwIf(chatName.length() > 50, ErrorCode.PARAMS_ERROR, "聊天名称过长");
+
+        User loginUser = userService.getLoginUser(request);
+        privateChatService.updateChatName(privateChatId, chatName, loginUser);
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 更新聊天类型（好友/私信）
+     */
+    @PostMapping("/update_type/{targetUserId}")
+    public BaseResponse<Boolean> updateChatType(@PathVariable Long targetUserId,
+                                                @RequestParam Boolean isFriend,
+                                                HttpServletRequest request) {
+        ThrowUtils.throwIf(targetUserId == null || targetUserId <= 0, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        privateChatService.updateChatType(loginUser.getId(), targetUserId, isFriend);
+        return ResultUtils.success(true);
+    }
+
 }
