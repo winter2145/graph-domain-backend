@@ -215,7 +215,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 sessions.remove(session);
                 if (sessions.isEmpty()) {
                     privateChatSessions.remove(privateChatId);
-
                 } else {
                     broadcastOnlineUsers(null, null, privateChatId);
                 }
@@ -359,7 +358,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 // 检查是否已经发送过消息
                 boolean hasSent = chatMessageService.hasSentMessage(senderId, receiverId);
                 if (hasSent) {
-                    sendErrorMessage(session, "单向关注只能发送一条消息");
+                    sendErrorMessage(session, "对方未关注前，只能发送一条消息");
                     return false;
                 }
             }
@@ -385,48 +384,50 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             if (pictureId != null) {
                 targetSessions = pictureSessions.get(pictureId);
                 // 获取该图片聊天室的在线用户
-                Set<User> onlineUsers = getOnlineUsers(targetSessions);
+                Set<UserVO> onlineUsers = getOnlineUsers(targetSessions);
                 response.put(WebSocketConstant.ONLINE_COUNT, onlineUsers.size());
                 response.put(WebSocketConstant.ONLINE_USERS, onlineUsers);
                 response.put(WebSocketConstant.PICTURE_ID, pictureId);
             } else if (privateChatId != null) {
                 targetSessions = privateChatSessions.get(privateChatId);
-                
+
                 // 获取私聊信息，找到参与者
                 PrivateChat privateChat = privateChatService.getById(privateChatId);
                 if (privateChat != null) {
                     // 获取该私聊的在线用户
-                    Set<User> chatUsers = getOnlineUsers(targetSessions);
-                    
+                    Set<UserVO> chatUsers = getOnlineUsers(targetSessions);
+
                     // 确保两个参与者都在列表中
                     User user1 = userService.getById(privateChat.getUserId());
                     User user2 = userService.getById(privateChat.getTargetUserId());
-                    
+
                     // 创建完整的用户列表
-                    Set<User> completeUserList = new HashSet<>();
-                    
+                    Set<UserVO> completeUserList = new HashSet<>();
+
                     // 添加已在聊天室的用户
                     if (!chatUsers.isEmpty()) {
                         completeUserList.addAll(chatUsers);
                     }
-                    
+
                     // 添加可能不在聊天室但在系统中的用户
                     if (user1 != null && !containsUser(completeUserList, user1.getId())) {
-                        completeUserList.add(createSafeUser(user1));
+                        completeUserList.add(userService.getUserVO(user1));
                     }
                     if (user2 != null && !containsUser(completeUserList, user2.getId())) {
-                        completeUserList.add(createSafeUser(user2));
+                        completeUserList.add(userService.getUserVO(user2));
                     }
-                    
-                    // 为所有用户设置在线状态
-                    for (User user : completeUserList) {
+
+                    // 筛选出 仅在线的用户
+                    for (UserVO user : completeUserList) {
                         if (user != null && user.getId() != null) {
                             // 用户在userSessions中有记录即视为在线
                             boolean isUserOnline = userSessions.containsKey(user.getId());
-                            user.setUserRole(isUserOnline ? "online" : "offline");
+                            if (!isUserOnline) {
+                                completeUserList.remove(user);
+                            }
                         }
                     }
-                    
+
                     response.put(WebSocketConstant.ONLINE_COUNT, completeUserList.size());
                     response.put(WebSocketConstant.ONLINE_USERS, completeUserList);
                     response.put(WebSocketConstant.PRIVATE_CHAT_ID, privateChatId);
@@ -434,7 +435,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             } else if (spaceId != null) {
                 targetSessions = spaceSessions.get(spaceId);
                 // 获取该空间内的在线用户
-                Set<User> onlineUsers = getOnlineUsers(targetSessions);
+                Set<UserVO> onlineUsers = getOnlineUsers(targetSessions);
                 // 获取空间所有成员
                 List<UserVO> allMembers = spaceUserService.getAllSpaceMembers(spaceId);
                 // 计算离线用户
@@ -469,7 +470,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     /**
      * 检查用户列表中是否包含指定ID的用户
      */
-    private boolean containsUser(Set<User> users, Long userId) {
+    private boolean containsUser(Set<UserVO> users, Long userId) {
         return users.stream().anyMatch(u -> u.getId().equals(userId));
     }
 
@@ -478,27 +479,15 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
      * @param targetSessions Set session 集合
      * @return
      */
-    private Set<User> getOnlineUsers(Set<WebSocketSession> targetSessions) {
+    private Set<UserVO> getOnlineUsers(Set<WebSocketSession> targetSessions) {
         if (targetSessions != null) {
             return targetSessions.stream()
                     .map(s -> (User) s.getAttributes().get(WebSocketConstant.USER))
                     .filter(Objects::nonNull)
-                    .map(this::createSafeUser)
+                    .map(user -> userService.getUserVO(user))
                     .collect(Collectors.toSet());
         }
         return Collections.EMPTY_SET;
-    }
-
-    private User createSafeUser(User user) {
-        User safeUser = new User();
-        safeUser.setId(user.getId());
-        safeUser.setUserAccount(user.getUserAccount());
-        safeUser.setUserName(user.getUserName());
-        safeUser.setUserAvatar(user.getUserAvatar());
-        safeUser.setUserProfile(user.getUserProfile());
-        safeUser.setUserRole(user.getUserRole());
-        safeUser.setCreateTime(user.getCreateTime());
-        return safeUser;
     }
 
     /**
@@ -507,11 +496,10 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     public void handlePrivateChatMessage(ChatMessage chatMessage, WebSocketSession session)
             throws IOException {
         User user = (User) session.getAttributes().get(WebSocketConstant.USER);
-        log.error("chatmessage为 ：{}", chatMessage);
         // 保存消息
         chatMessageService.save(chatMessage);
 
-        // 登录消息后清楚缓存
+        // 登录消息后清除缓存
         deleteRedis(chatMessage);
         privateChatService.updatePrivateChatWithNewMessage(chatMessage, chatMessage.getPrivateChatId(), user);
         // 发送消息
@@ -531,7 +519,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     /**
      * 处理图片聊天室消息
      */
-    public void handlePictureChatMessage(ChatMessage chatMessage, WebSocketSession session) throws IOException {
+    public void handlePictureChatMessage(ChatMessage chatMessage, WebSocketSession session)
+            throws IOException {
         try {
             // 保存消息
             chatMessageService.save(chatMessage);
@@ -549,7 +538,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     /**
      * 处理空间聊天消息
      */
-    public void handleSpaceChatMessage(ChatMessage chatMessage, WebSocketSession session) throws IOException {
+    public void handleSpaceChatMessage(ChatMessage chatMessage, WebSocketSession session)
+            throws IOException {
         try {
             // 保存消息
             chatMessageService.save(chatMessage);
@@ -567,7 +557,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     /**
      * 错误消息信息
      */
-    private void sendErrorMessage(WebSocketSession session, String message) throws IOException {
+    private void sendErrorMessage(WebSocketSession session, String message)
+            throws IOException {
         Map<String, Object> errorResponse = new HashMap<>();
         errorResponse.put("type", "error");
         errorResponse.put("message", message);

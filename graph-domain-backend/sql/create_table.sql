@@ -170,6 +170,11 @@ CREATE TABLE private_chat
     isDelete              tinyint  DEFAULT 0                 NOT NULL COMMENT '是否删除'
 )
     COMMENT '私聊表' COLLATE = utf8mb4_unicode_ci;
+
+ALTER TABLE private_chat
+    ADD COLUMN userDeleted TINYINT(1) DEFAULT 0 COMMENT '用户是否删除',
+    ADD COLUMN targetUserDeleted TINYINT(1) DEFAULT 0 COMMENT '目标用户是否删除';
+
 -- 空间用户关联
 CREATE TABLE space_user
 (

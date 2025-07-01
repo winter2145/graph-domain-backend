@@ -80,6 +80,16 @@ public class PrivateChat implements Serializable {
     @TableLogic
     private Integer isDelete;
 
+    /**
+     * 用户是否删除：true 删
+     */
+    private boolean userDeleted;
+
+    /**
+     * 目标用户是否删除：true 删
+     */
+    private boolean targetUserDeleted;
+
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 }
