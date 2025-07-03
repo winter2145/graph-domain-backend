@@ -27,6 +27,6 @@
         lastMessage,lastMessageTime,userUnreadCount,
         targetUserUnreadCount,userChatName,targetUserChatName,
         chatType,createTime,updateTime,
-        isDelete
+        isDelete,userDeleted,targetUserDeleted
     </sql>
 </mapper>
