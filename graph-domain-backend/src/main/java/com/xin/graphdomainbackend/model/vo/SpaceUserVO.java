@@ -55,6 +55,11 @@ public class SpaceUserVO implements Serializable {
     private SpaceVO space;
 
     /**
+     * 审核状态：0-待审核 1-通过 2-拒绝
+     */
+    private Integer status;
+
+    /**
      * 封装类转对象
      *
      * @param spaceUserVO

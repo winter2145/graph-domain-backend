@@ -21,6 +21,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
+        <!--增强 IntelliJ IDEA 静态分析能力的注解-->
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>24.0.1</version>
+        </dependency>
+
         <!-- MyBatis Plus -->
         <dependency>
             <groupId>com.baomidou</groupId>

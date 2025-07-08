@@ -8,6 +8,7 @@ import com.xin.graphdomainbackend.model.dto.space.SpaceAddRequest;
 import com.xin.graphdomainbackend.model.dto.space.SpaceQueryRequest;
 import com.xin.graphdomainbackend.model.dto.space.analyze.SpaceAnalyzeRequest;
 import com.xin.graphdomainbackend.model.dto.space.analyze.SpaceUsageAnalyzeRequest;
+import com.xin.graphdomainbackend.model.dto.spaceuser.SpaceUserAuditRequest;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.vo.SpaceVO;
@@ -98,6 +99,5 @@ public interface SpaceService extends IService<Space> {
      * @param space 空间对象
      */
     void checkPrivateSpaceAuth(User loginUser, Space space);
-
 
 }

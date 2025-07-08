@@ -31,4 +31,9 @@ public class SpaceUserQueryRequest implements Serializable {
      * 空间角色：viewer/editor/admin
      */
     private String spaceRole;
+
+    /**
+     * 审核状态：0-待审核 1-已通过 2-已拒绝
+     */
+    private Integer status;
 }
