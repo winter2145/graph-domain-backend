@@ -4,10 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.xin.graphdomainbackend.model.dto.space.SpaceQueryRequest;
-import com.xin.graphdomainbackend.model.dto.spaceuser.SpaceUserAddRequest;
-import com.xin.graphdomainbackend.model.dto.spaceuser.SpaceUserAuditRequest;
-import com.xin.graphdomainbackend.model.dto.spaceuser.SpaceUserJoinRequest;
-import com.xin.graphdomainbackend.model.dto.spaceuser.SpaceUserQueryRequest;
+import com.xin.graphdomainbackend.model.dto.spaceuser.*;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.SpaceUser;
 import com.xin.graphdomainbackend.model.entity.User;
@@ -55,7 +52,13 @@ public interface SpaceUserService extends IService<SpaceUser> {
     void validSpaceUser(SpaceUser spaceUser, boolean add);
 
     /**
-     * 获取查询对象
+     * 编辑空间成员角色权限
+     * @param spaceUserEditRequest 成员编辑请求
+     */
+    boolean editSpaceUser(SpaceUserEditRequest spaceUserEditRequest);
+
+    /**
+     * 构建查询对象 请求
      * @param spaceUserQueryRequest 空间_用户 查询请求
      * @return
      */

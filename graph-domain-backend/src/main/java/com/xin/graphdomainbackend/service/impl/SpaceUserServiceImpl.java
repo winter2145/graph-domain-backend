@@ -10,10 +10,7 @@ import com.xin.graphdomainbackend.constant.SpaceUserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.mapper.SpaceUserMapper;
-import com.xin.graphdomainbackend.model.dto.spaceuser.SpaceUserAddRequest;
-import com.xin.graphdomainbackend.model.dto.spaceuser.SpaceUserAuditRequest;
-import com.xin.graphdomainbackend.model.dto.spaceuser.SpaceUserJoinRequest;
-import com.xin.graphdomainbackend.model.dto.spaceuser.SpaceUserQueryRequest;
+import com.xin.graphdomainbackend.model.dto.spaceuser.*;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.SpaceUser;
 import com.xin.graphdomainbackend.model.entity.User;
@@ -136,6 +133,24 @@ public class SpaceUserServiceImpl extends ServiceImpl<SpaceUserMapper, SpaceUser
         if (spaceRole != null && spaceRoleEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "空间角色不存在");
         }
+    }
+
+    @Override
+    public boolean editSpaceUser(SpaceUserEditRequest spaceUserEditRequest) {
+        ThrowUtils.throwIf(spaceUserEditRequest == null, ErrorCode.PARAMS_ERROR);
+        Long id = spaceUserEditRequest.getId();
+
+        // 查询空间内是否存在该用户
+        SpaceUser spaceUser = this.getById(id);
+        ThrowUtils.throwIf(spaceUser == null, ErrorCode.PARAMS_ERROR);
+
+        String targetRole = spaceUserEditRequest.getSpaceRole();
+        spaceUser.setSpaceRole(targetRole);
+        // 校验参数
+        validSpaceUser(spaceUser, false);
+
+        // 保存至数据库
+        return this.updateById(spaceUser);
     }
 
     @Override
