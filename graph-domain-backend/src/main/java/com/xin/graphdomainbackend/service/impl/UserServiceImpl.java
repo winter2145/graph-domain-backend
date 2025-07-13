@@ -16,6 +16,7 @@ import com.xin.graphdomainbackend.constant.EncryptConstant;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
+import com.xin.graphdomainbackend.manager.auth.StpKit;
 import com.xin.graphdomainbackend.mapper.UserMapper;
 import com.xin.graphdomainbackend.model.dto.user.UserQueryRequest;
 import com.xin.graphdomainbackend.model.dto.user.UserUpdateRequest;
@@ -236,6 +237,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
         // 4.记录用户状态
         request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, user);
+        // (后补) 记录用户登录态到 Sa-token，便于空间鉴权时使用
+        StpKit.SPACE.login(user.getId());
+        StpKit.SPACE.getSession().set(UserConstant.USER_LOGIN_STATE, user);
+
         LoginUserVO loginUserVO = new LoginUserVO();
         BeanUtil.copyProperties(user, loginUserVO);
         return loginUserVO;
