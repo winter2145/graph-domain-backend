@@ -5,7 +5,9 @@ import com.xin.graphdomainbackend.model.entity.Space;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
  * 空间视图
@@ -56,6 +58,11 @@ public class SpaceVO implements Serializable {
 
     // 空间成员数量
     private Long memberCount;
+
+    /**
+     * 权限列表
+     */
+    private List<String> permissionList = new ArrayList<>();
 
     /**
      * spaceVO -> space

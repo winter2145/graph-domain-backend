@@ -48,6 +48,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -137,10 +138,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         if (spaceId != null) {
             Space space = spaceService.getById(spaceId);
             ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR, "空间不存在");
-            // 必须是空间管理者才能上传图片
-            if (!space.getUserId().equals(loginUser.getId())) {
-                throw new BusinessException(ErrorCode.PARAMS_ERROR, "没有操作权限");
-            }
+
+            // 必须是空间管理者才能上传图片 (已修改为 SaToken 校验)
+            // if (!space.getUserId().equals(loginUser.getId())) {
+            //     throw new BusinessException(ErrorCode.PARAMS_ERROR, "没有操作权限");
+            // }
+
             // 校验额度
             if (space.getTotalCount() >= space.getMaxCount()) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "已超出当前存储图片的最大数量");
@@ -444,6 +447,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean editPicture(PictureEditRequest pictureEditRequest, HttpServletRequest request) {
 
         // 校验参数
@@ -909,7 +913,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
         // 5.返回结果
         return sortedPictureList.stream()
-                .map(picture -> PictureVO.objToVo(picture))
+                .map(PictureVO::objToVo)
                 .collect(Collectors.toList());
     }
 

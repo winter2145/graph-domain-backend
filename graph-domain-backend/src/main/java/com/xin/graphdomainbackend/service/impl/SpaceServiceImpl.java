@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.esdao.EsSpaceDao;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
+import com.xin.graphdomainbackend.manager.sharding.DynamicShardingManager;
 import com.xin.graphdomainbackend.mapper.SpaceMapper;
 import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.space.SpaceAddRequest;
@@ -32,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,6 +65,10 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
 
     @Resource
     private SpaceUserService spaceUserService;
+
+/*    @Resource
+    @Lazy
+    private DynamicShardingManager dynamicShardingManager;*/
 
     @Override
     public long addSpace(SpaceAddRequest spaceAddRequest, User loginUser) {
@@ -129,6 +135,9 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
                 result = spaceUserService.save(spaceUser);
                 ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "创建团队成员记录失败");
             }
+
+            // 创建分表(学习用，非必要不用)
+            // dynamicShardingManager.createSpacePictureTable(space);
 
             return space.getId();
         } catch (BusinessException e) {

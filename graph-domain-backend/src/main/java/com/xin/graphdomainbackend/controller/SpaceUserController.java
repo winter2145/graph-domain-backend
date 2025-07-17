@@ -1,8 +1,11 @@
 package com.xin.graphdomainbackend.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.xin.graphdomainbackend.annotation.LoginCheck;
+import com.xin.graphdomainbackend.annotation.SaSpaceCheckPermission;
 import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.exception.ErrorCode;
+import com.xin.graphdomainbackend.manager.auth.model.SpaceUserPermissionConstant;
 import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.spaceuser.*;
 import com.xin.graphdomainbackend.model.entity.SpaceUser;
@@ -43,6 +46,7 @@ public class SpaceUserController {
      * 管理员添加成员到空间
      */
     @PostMapping("/add")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.SPACE_USER_MANAGE)
     public BaseResponse<Long> addSpaceUser(@RequestBody SpaceUserAddRequest spaceUserAddRequest) {
         ThrowUtils.throwIf(spaceUserAddRequest == null, ErrorCode.PARAMS_ERROR);
 
@@ -54,6 +58,7 @@ public class SpaceUserController {
      * 管理员移除成员
      */
     @PostMapping("/delete")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.SPACE_USER_MANAGE)
     public BaseResponse<Boolean> deleteSpaceUser(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(deleteRequest == null || request == null, ErrorCode.PARAMS_ERROR);
 
@@ -72,6 +77,7 @@ public class SpaceUserController {
      * 编辑成员权限
      */
     @PostMapping("/edit")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.SPACE_USER_MANAGE)
     public BaseResponse<Boolean> editSpaceUser(@RequestBody SpaceUserEditRequest spaceUserEditRequest) {
         ThrowUtils.throwIf(spaceUserEditRequest == null, ErrorCode.PARAMS_ERROR);
         boolean result = spaceUserService.editSpaceUser(spaceUserEditRequest);
@@ -83,6 +89,7 @@ public class SpaceUserController {
      * 查询成员列表信息
      */
     @PostMapping("list")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.SPACE_USER_MANAGE)
     public BaseResponse<List<SpaceUserVO>> listSpaceUserVO(@RequestBody SpaceUserQueryRequest spaceUserQueryRequest) {
         ThrowUtils.throwIf(spaceUserQueryRequest == null, ErrorCode.PARAMS_ERROR);
 
@@ -98,6 +105,7 @@ public class SpaceUserController {
      * 查询某个成员在某个空间的信息
      */
     @PostMapping("/get")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.SPACE_USER_MANAGE)
     public BaseResponse<SpaceUser> getSpaceUser(@RequestBody SpaceUserQueryRequest spaceUserQueryRequest) {
         ThrowUtils.throwIf(spaceUserQueryRequest == null, ErrorCode.PARAMS_ERROR);
 
@@ -112,6 +120,7 @@ public class SpaceUserController {
      * 查询我加入的团队空间列表
      */
     @PostMapping("/list/my")
+    @LoginCheck
     public BaseResponse<List<SpaceUserVO>> listMyTeamSpace() {
         // 获取请求上下文
         RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
@@ -136,6 +145,7 @@ public class SpaceUserController {
      * 审核空间成员申请
      */
     @PostMapping("/audit")
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.SPACE_USER_MANAGE)
     public BaseResponse<Boolean> auditSpaceUser(@RequestBody SpaceUserAuditRequest spaceUserAuditRequest) {
         ThrowUtils.throwIf(spaceUserAuditRequest == null, ErrorCode.PARAMS_ERROR);
 
@@ -156,6 +166,7 @@ public class SpaceUserController {
      * 成员申请加入请求
      */
     @PostMapping("/join")
+    @LoginCheck
     public BaseResponse<Boolean> joinSpace(@RequestBody SpaceUserJoinRequest spaceUserJoinRequest) {
         ThrowUtils.throwIf(spaceUserJoinRequest == null, ErrorCode.PARAMS_ERROR);
 
