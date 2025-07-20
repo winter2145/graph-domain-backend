@@ -22,6 +22,7 @@ import com.xin.graphdomainbackend.service.SpaceUserService;
 import com.xin.graphdomainbackend.service.UserFollowsService;
 import com.xin.graphdomainbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;

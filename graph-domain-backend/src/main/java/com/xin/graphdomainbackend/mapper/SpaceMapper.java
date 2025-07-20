@@ -2,6 +2,10 @@ package com.xin.graphdomainbackend.mapper;
 
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+
+import java.util.List;
 
 /**
 * @author Administrator
@@ -10,7 +14,8 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 * @Entity com.xin.graphdomainbackend.model.entity.Space
 */
 public interface SpaceMapper extends BaseMapper<Space> {
-
+    @Select("SELECT id FROM space WHERE spaceType = #{spaceType}")
+    List<Long> selectTeamSpaceIds(@Param("spaceType") Integer spaceType);
 }
 
 

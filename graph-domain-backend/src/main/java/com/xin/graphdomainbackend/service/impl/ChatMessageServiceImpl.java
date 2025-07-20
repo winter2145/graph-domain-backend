@@ -16,6 +16,7 @@ import com.xin.graphdomainbackend.model.vo.message.chat.ChatMessageVO;
 import com.xin.graphdomainbackend.service.ChatMessageService;
 import com.xin.graphdomainbackend.service.UserService;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 

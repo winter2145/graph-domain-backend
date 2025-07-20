@@ -23,11 +23,6 @@ public class PictureEditEventProducer {
 
     /**
      * 发布事件
-     *
-     * @param pictureEditRequestMessage
-     * @param session
-     * @param user
-     * @param pictureId
      */
     public void publishEvent(PictureEditRequestMessage pictureEditRequestMessage, WebSocketSession session, User user, Long pictureId) {
         RingBuffer<PictureEditEvent> ringBuffer = pictureEditEventDisruptor.getRingBuffer();

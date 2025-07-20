@@ -2,6 +2,7 @@ package com.xin.graphdomainbackend.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xin.graphdomainbackend.annotation.AuthCheck;
 import com.xin.graphdomainbackend.annotation.LoginCheck;
@@ -15,12 +16,14 @@ import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.manager.auth.SpaceUserAuthManager;
 import com.xin.graphdomainbackend.manager.auth.StpKit;
 import com.xin.graphdomainbackend.manager.auth.model.SpaceUserPermissionConstant;
+import com.xin.graphdomainbackend.mapper.SpaceMapper;
 import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.picture.*;
 import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.enums.PictureReviewStatusEnum;
+import com.xin.graphdomainbackend.model.enums.SpaceTypeEnum;
 import com.xin.graphdomainbackend.model.vo.PictureTagCategory;
 import com.xin.graphdomainbackend.model.vo.PictureVO;
 import com.xin.graphdomainbackend.service.PictureService;
@@ -57,6 +60,9 @@ public class PictureController {
 
     @Resource
     private SpaceService spaceService;
+
+    @Resource
+    private SpaceMapper spaceMapper;
 
 
     /**
@@ -175,16 +181,13 @@ public class PictureController {
      * 根据 id 获取图片包装类 （主要面向普通用户）
      */
     @GetMapping("/get/vo")
-    public BaseResponse<PictureVO> getPictureVOById(long id, HttpServletRequest request
-    ) {
+    public BaseResponse<PictureVO> getPictureVOById(long id, HttpServletRequest request) {
         BaseResponse<Picture> pictureById = getPictureById(id, request);
         Picture picture = pictureById.getData();
 
         assert picture != null;
         Long spaceId = picture.getSpaceId();
         if (spaceId != null) {
-            // User loginUser = userService.getLoginUser(request);
-            // pictureService.checkPictureAuth(loginUser, picture);
             // 修改为SaToken 编程式校验权限
             boolean hasPermission = StpKit.SPACE.hasPermission(SpaceUserPermissionConstant.PICTURE_VIEW);
             ThrowUtils.throwIf(!hasPermission, ErrorCode.NO_AUTH_ERROR);
@@ -209,9 +212,14 @@ public class PictureController {
     public BaseResponse<Page<Picture>> listPictureByPage(@RequestBody PictureQueryRequest pictureQueryRequest) {
 
         Long spaceId = pictureQueryRequest.getSpaceId();
-        // 公开图库
-        if (spaceId == null) { // 管理员可以查看公开数据
+        // 管理员没有传 spaceId，则查公开图库 + 所有团队空间图片
+        if (spaceId == null) {
+            // 查 spaceId 为 null 的公开图库
             pictureQueryRequest.setNullSpaceId(true);
+
+            // 加上团队空间的 ID 列表
+            List<Long> teamSpaceIdList = spaceMapper.selectTeamSpaceIds(SpaceTypeEnum.TEAM.getValue());
+            pictureQueryRequest.setTeamSpaceIdList(teamSpaceIdList); // 塞入是团队空间的id
         }
         Page<Picture> pictureByPage = pictureService.getPictureByPage(pictureQueryRequest);
 
@@ -232,16 +240,18 @@ public class PictureController {
                 pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
             }
             pictureQueryRequest.setNullSpaceId(true);
-        } else { // 私有空间,不需要审核,只有本人可以查看
-            // User loginUser = userService.getLoginUser(request);
-            // Space space = spaceService.getById(spaceId);
-            // ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR);
-            // if (!loginUser.getId().equals(space.getUserId())) {
-            //     throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "仅本人可以操作");
-            // }
-            // 修改为SaToken 编程式校验权限
-            boolean hasPermission = StpKit.SPACE.hasPermission(SpaceUserPermissionConstant.PICTURE_VIEW);
-            ThrowUtils.throwIf(!hasPermission, ErrorCode.NO_AUTH_ERROR, "仅本人可以操作");
+        } else {
+            Space space = spaceService.getById(spaceId);
+            ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR, "空间不存在");
+            Integer spaceType = space.getSpaceType();
+            if (spaceType.equals(SpaceTypeEnum.PRIVATE.getValue())) { // 私有空间,不需要审核（只有本人可以查看）
+                // 修改为SaToken 编程式校验权限
+                boolean hasPermission = StpKit.SPACE.hasPermission(SpaceUserPermissionConstant.PICTURE_VIEW);
+                ThrowUtils.throwIf(!hasPermission, ErrorCode.NO_AUTH_ERROR, "仅本人可以操作");
+            }
+            if (spaceType.equals(SpaceTypeEnum.TEAM.getValue())) { // 团队空间只能查看已审核的
+                pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
+            }
         }
 
         Page<PictureVO> pictureVOByPage = pictureService.getPictureVOByPage(pictureQueryRequest);

@@ -3,8 +3,10 @@ package com.xin.graphdomainbackend.manager.websocket.picture.disruptor;
 import cn.hutool.json.JSONUtil;
 import com.lmax.disruptor.WorkHandler;
 import com.xin.graphdomainbackend.manager.websocket.picture.PictureEditHandler;
+import com.xin.graphdomainbackend.manager.websocket.picture.PictureEditHandlerFactory;
+import com.xin.graphdomainbackend.manager.websocket.picture.handler.PictureEditHandlerTemplate;
 import com.xin.graphdomainbackend.model.dto.message.picture.PictureEditRequestMessage;
-import com.xin.graphdomainbackend.model.dto.message.picture.PictureEditResponseMessage;
+import com.xin.graphdomainbackend.model.vo.message.picture.PictureEditResponseMessage;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.enums.PictureEditMessageTypeEnum;
 import com.xin.graphdomainbackend.service.UserService;
@@ -23,7 +25,7 @@ import javax.annotation.Resource;
 public class PictureEditEventWorkHandler implements WorkHandler<PictureEditEvent> {
 
     @Resource
-    private PictureEditHandler pictureEditHandler;
+    private PictureEditHandlerFactory pictureEditHandlerFactory;
 
     @Resource
     private UserService userService;
@@ -37,8 +39,14 @@ public class PictureEditEventWorkHandler implements WorkHandler<PictureEditEvent
         // 获取到消息类别
         String type = pictureEditRequestMessage.getType();
         PictureEditMessageTypeEnum pictureEditMessageTypeEnum = PictureEditMessageTypeEnum.getEnumByValue(type);
+        String value = pictureEditMessageTypeEnum.getValue();
+
+        // 使用模板 调用
+        PictureEditHandlerTemplate templateHandler = pictureEditHandlerFactory.getHandler(value);
+        templateHandler.handle(pictureEditRequestMessage, session, user, pictureId);
+
         // 根据消息类型处理消息
-        switch (pictureEditMessageTypeEnum) {
+       /* switch (pictureEditMessageTypeEnum) {
             case ENTER_EDIT:
                 pictureEditHandler.handleEnterEditMessage(pictureEditRequestMessage, session, user, pictureId);
                 break;
@@ -56,6 +64,6 @@ public class PictureEditEventWorkHandler implements WorkHandler<PictureEditEvent
                 pictureEditResponseMessage.setUser(userService.getUserVO(user));
                 session.sendMessage(new TextMessage(JSONUtil.toJsonStr(pictureEditResponseMessage)));
                 break;
-        }
+        }*/
     }
 }
