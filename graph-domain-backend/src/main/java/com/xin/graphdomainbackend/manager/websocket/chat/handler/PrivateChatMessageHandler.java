@@ -14,6 +14,9 @@ import org.springframework.web.socket.WebSocketSession;
 
 import javax.annotation.Resource;
 
+/**
+ * 私人聊天消息处理
+ */
 @Component
 @Slf4j
 public class PrivateChatMessageHandler extends ChatMessageHandlerTemplate{
