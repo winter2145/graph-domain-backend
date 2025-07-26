@@ -16,6 +16,7 @@ import com.xin.graphdomainbackend.model.vo.message.chat.ChatMessageVO;
 import com.xin.graphdomainbackend.service.ChatMessageService;
 import com.xin.graphdomainbackend.service.UserService;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -230,7 +231,7 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
 
     @Override
     public ChatHistoryPageResponse getPrivateChatHistoryVO(long privateChatId, long current, long size) {
-        Page<ChatMessage> chatMessagePage = this.getSpaceChatHistory(privateChatId, current, size);
+        Page<ChatMessage> chatMessagePage = this.getPrivateChatHistory(privateChatId, current, size);
 
         List<ChatMessageVO> chatMessageVOList = chatMessagePage.getRecords().stream()
                 .map(this::convertToVO)
@@ -243,6 +244,17 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
         response.setTotal(chatMessagePage.getTotal());
 
         return response;
+    }
+
+    @Override
+    public boolean hasSentMessage(Long senderId, Long receiverId) {
+        return this.lambdaQuery()
+                .eq(ChatMessage::getSenderId, senderId)
+                .eq(ChatMessage::getReceiverId, receiverId)
+                .eq(ChatMessage::getType, 1) //私聊
+                .last("limit 1")
+                .oneOpt() // 去null
+                .isPresent(); // 值不为null，则true
     }
 
     /**

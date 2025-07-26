@@ -13,6 +13,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -23,6 +25,9 @@ public class AuthInterceptor {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 权限校验拦截器（基于注解 @AuthCheck）
@@ -57,6 +62,10 @@ public class AuthInterceptor {
         }
 
         // 通过校验,放行
+        // 刷新在线状态
+        if (loginUser != null && loginUser.getId() != null) {
+            stringRedisTemplate.expire("online:" + loginUser.getId(), 30, TimeUnit.MINUTES);
+        }
         return joinPoint.proceed();
 
     }

@@ -83,4 +83,10 @@ public interface ChatMessageService extends IService<ChatMessage> {
      */
     ChatHistoryPageResponse getPrivateChatHistoryVO(long privateChatId, long current, long size);
 
+    /**
+     * 用户是否发送过消息
+     * @param senderId 发送者
+     * @param receiverId 接收者
+     */
+    boolean hasSentMessage(Long senderId, Long receiverId);
 }

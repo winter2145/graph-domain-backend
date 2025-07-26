@@ -69,7 +69,7 @@ public class ChatMessageVO implements Serializable {
     private Date createTime;
 
     /**
-     * 消息类型：1 - 私聊，2 - 图片聊天室
+     * 消息类型
      */
     private Integer type;
 }

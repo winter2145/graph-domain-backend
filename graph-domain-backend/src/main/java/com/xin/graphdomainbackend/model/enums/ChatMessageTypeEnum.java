@@ -13,7 +13,11 @@ public enum ChatMessageTypeEnum {
     LEAVE("离开聊天", "LEAVE"),
     HISTORY("历史消息", "HISTORY"),
     ONLINE("在线用户", "ONLINE"),
-    ERROR("错误消息", "ERROR");
+    ERROR("错误消息", "ERROR"),
+
+    PICTURE("图片聊天室","PICTURE"),
+    PRIVATE("私人聊天","PRIVATE"),
+    SPACE("空间聊天","SPACE");
 
     private final String text;
     private final String value;

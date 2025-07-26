@@ -1,5 +1,7 @@
 package com.xin.graphdomainbackend.exception;
 
+import cn.dev33.satoken.exception.NotLoginException;
+import cn.dev33.satoken.exception.NotPermissionException;
 import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.utils.ResultUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -27,43 +29,15 @@ public class GlobalException {
         return ResultUtils.error(ErrorCode.SYSTEM_ERROR, e.getMessage());
     }
 
-/*    @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<BaseResponse<?>> businessExceptionHandler(BusinessException e) {
-        log.error("BusinessException", e);
-
-        HttpStatus status = mapCodeToHttpStatus(e.getCode());
-
-        return new ResponseEntity<>(
-                ResultUtils.error(e.getCode(), e.getMessage()),
-                status
-        );
+    @ExceptionHandler(NotLoginException.class)
+    public BaseResponse<?> notLoginException(NotLoginException e) {
+        log.error("NotLoginException", e);
+        return ResultUtils.error(ErrorCode.NOT_LOGIN_ERROR, e.getMessage());
     }
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<BaseResponse<?>> runtimeExceptionHandler(RuntimeException e) {
-        log.error("RuntimeException", e);
-        return new ResponseEntity<>(
-                ResultUtils.error(ErrorCode.SYSTEM_ERROR.getCode(), "系统错误：" + e.getMessage()),
-                HttpStatus.INTERNAL_SERVER_ERROR
-        );
+    @ExceptionHandler(NotPermissionException.class)
+    public BaseResponse<?> notPermissionExceptionHandler(NotPermissionException e) {
+        log.error("NotPermissionException", e);
+        return ResultUtils.error(ErrorCode.NO_AUTH_ERROR, e.getMessage());
     }
-
-
-    *//**
-     * 根据业务状态码映射 HTTP 状态码
-     *//*
-    private HttpStatus mapCodeToHttpStatus(int code) {
-        if (code == ErrorCode.SUCCESS.getCode()) return HttpStatus.OK;
-        if (code == ErrorCode.PARAMS_ERROR.getCode()) return HttpStatus.BAD_REQUEST;
-        if (code == ErrorCode.NOT_LOGIN_ERROR.getCode()) return HttpStatus.UNAUTHORIZED;
-        if (code == ErrorCode.NO_AUTH_ERROR.getCode()) return HttpStatus.FORBIDDEN;
-        if (code == ErrorCode.NOT_FOUND_ERROR.getCode()) return HttpStatus.NOT_FOUND;
-        if (code == ErrorCode.FORBIDDEN_ERROR.getCode()) return HttpStatus.FORBIDDEN;
-        if (code == ErrorCode.SYSTEM_ERROR.getCode() || code == ErrorCode.OPERATION_ERROR.getCode()) {
-            return HttpStatus.INTERNAL_SERVER_ERROR;
-        }
-        // 默认返回 500
-        return HttpStatus.INTERNAL_SERVER_ERROR;
-    }*/
-
 }

@@ -15,6 +15,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Properties;
 
+/**
+ * 邮件发送配置
+ */
 @Configuration
 @ConfigurationProperties(prefix = "spring.mail")
 @Data

@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.esdao.EsSpaceDao;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
+import com.xin.graphdomainbackend.manager.sharding.DynamicShardingManager;
 import com.xin.graphdomainbackend.mapper.SpaceMapper;
 import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.space.SpaceAddRequest;
@@ -19,17 +20,20 @@ import com.xin.graphdomainbackend.model.entity.SpaceUser;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.entity.es.EsSpace;
 import com.xin.graphdomainbackend.model.enums.SpaceLevelEnum;
+import com.xin.graphdomainbackend.model.enums.SpaceRoleEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceTypeEnum;
 import com.xin.graphdomainbackend.model.vo.SpaceVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.service.PictureService;
 import com.xin.graphdomainbackend.service.SpaceService;
+import com.xin.graphdomainbackend.service.SpaceUserService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,6 +62,13 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
 
     @Resource
     private RedissonClient redissonClient;
+
+    @Resource
+    private SpaceUserService spaceUserService;
+
+/*    @Resource
+    @Lazy
+    private DynamicShardingManager dynamicShardingManager;*/
 
     @Override
     public long addSpace(SpaceAddRequest spaceAddRequest, User loginUser) {
@@ -112,9 +123,22 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
             space.setUserId(loginUser.getId());
 
             boolean result = this.save(space);
-            if (!result) {
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "空间创建失败");
+            ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "保存空间到数据库失败");
+
+            // 创建成功，如果是团队空间，关联新增团队成员记录
+            if (SpaceTypeEnum.TEAM.getValue() == space.getSpaceType()) {
+                SpaceUser spaceUser = new SpaceUser();
+                spaceUser.setSpaceId(space.getId());
+                spaceUser.setUserId(userId);
+                spaceUser.setSpaceRole(SpaceRoleEnum.ADMIN.getValue());// 创建者为管理员
+                spaceUser.setStatus(1);  // 设置为已通过状态
+                result = spaceUserService.save(spaceUser);
+                ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "创建团队成员记录失败");
             }
+
+            // 创建分表(学习用，非必要不用)
+            // dynamicShardingManager.createSpacePictureTable(space);
+
             return space.getId();
         } catch (BusinessException e) {
             // 保留原始业务异常信息

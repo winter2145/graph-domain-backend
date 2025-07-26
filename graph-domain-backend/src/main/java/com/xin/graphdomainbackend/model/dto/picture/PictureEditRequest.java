@@ -38,4 +38,9 @@ public class PictureEditRequest implements Serializable {
      */
     private List<String> tags;
 
+    /**
+     * 空间id (私人空间上传图片，编辑用)
+     */
+    private Long spaceId;
+
 }

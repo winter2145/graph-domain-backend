@@ -5,10 +5,12 @@ import cn.hutool.core.util.ObjUtil;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xin.graphdomainbackend.annotation.AuthCheck;
+import com.xin.graphdomainbackend.annotation.LoginCheck;
 import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
+import com.xin.graphdomainbackend.manager.auth.SpaceUserAuthManager;
 import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.space.SpaceAddRequest;
 import com.xin.graphdomainbackend.model.dto.space.SpaceQueryRequest;
@@ -44,6 +46,9 @@ public class SpaceController {
 
     @Resource
     private SpaceService spaceService;
+
+    @Resource
+    private SpaceUserAuthManager spaceUserAuthManager;
 
     @PostMapping("/add")
     public BaseResponse<Long> addSpace(@RequestBody SpaceAddRequest spaceAddRequest,
@@ -137,14 +142,17 @@ public class SpaceController {
         if (ObjUtil.isEmpty(id) || request == null || id < 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        // 查询用户是否登录
-        User loginUser = userService.getLoginUser(request);
+
         // 查询数据库
         Space space = spaceService.getById(id);
         ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR);
         SpaceVO spaceVO = spaceService.getSpaceVO(space);
 
-        // 获取封装类
+        // 为VO 设置 权限值
+        User loginUser = userService.getLoginUser(request);
+        List<String> permissionList = spaceUserAuthManager.getPermissionList(space, loginUser);
+        spaceVO.setPermissionList(permissionList);
+
         return ResultUtils.success(spaceVO);
     }
 

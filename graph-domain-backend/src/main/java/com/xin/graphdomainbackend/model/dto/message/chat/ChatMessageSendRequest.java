@@ -33,7 +33,7 @@ public class ChatMessageSendRequest implements Serializable {
     private Long privateChatId;
 
     /**
-     * 回复者id
+     * 回复者id（评论用）
      */
     private Long replyId;
 
@@ -41,6 +41,11 @@ public class ChatMessageSendRequest implements Serializable {
      * 会话根消息 ID，用于组织消息树（比如评论主干）
      */
     private Long rootId;
+
+    /**
+     * 回复人（私人聊天用）
+     */
+    private Long receiverId;
 
 
 }

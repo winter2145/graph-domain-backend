@@ -162,9 +162,23 @@ public class UserFollowsServiceImpl extends ServiceImpl<UserFollowsMapper, UserF
                 .eq(UserFollows::getFollowStatus, 1)
                 .list();
         return followsList.stream()
-                .map(UserFollows::getFollowId)
+                .map(UserFollows::getFollowingId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Boolean isMutualRelations(Long userId, Long targetUserId) {
+        ThrowUtils.throwIf(userId == null|| targetUserId == null, ErrorCode.PARAMS_ERROR);
+        return lambdaQuery().and(
+                wrap -> wrap.eq(UserFollows::getFollowerId, userId)
+                .eq(UserFollows::getFollowingId, targetUserId)
+                .eq(UserFollows::getIsMutual, 1)
+                .or()
+                .eq(UserFollows::getFollowerId, targetUserId)
+                .eq(UserFollows::getFollowingId, userId)
+        ).count() > 1;
+
     }
 
     /**

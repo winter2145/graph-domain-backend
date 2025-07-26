@@ -118,5 +118,10 @@ public class PictureQueryRequest extends PageRequest implements Serializable {
      */
     private Date reviewTime;
 
+    /**
+     * 团队空间id列表
+     */
+    private List<Long> teamSpaceIdList;
+
 
 }

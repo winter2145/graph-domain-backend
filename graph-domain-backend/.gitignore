@@ -32,3 +32,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# 忽略同级目录下的 fornted 文件夹
+fornted/

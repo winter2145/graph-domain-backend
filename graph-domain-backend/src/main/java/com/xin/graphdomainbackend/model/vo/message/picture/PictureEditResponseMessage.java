@@ -1,4 +1,4 @@
-package com.xin.graphdomainbackend.model.dto.message.picture;
+package com.xin.graphdomainbackend.model.vo.message.picture;
 
 import com.xin.graphdomainbackend.model.vo.UserVO;
 import lombok.AllArgsConstructor;
