@@ -488,7 +488,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         ThrowUtils.throwIf(oldPicture == null, ErrorCode.NOT_FOUND_ERROR);
 
         // 校验空间是否存在
-        long spaceId = pictureEditRequest.getSpaceId();
+        Long spaceId = pictureEditRequest.getSpaceId();
         Space space = spaceService.getById(spaceId);
 
         // 保留旧的数据

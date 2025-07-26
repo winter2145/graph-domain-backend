@@ -40,7 +40,7 @@ public class ChatMessage implements Serializable {
     private String content;
 
     /**
-     * 消息类型 1 - 私聊  2 - 图片聊天室 3 - 空间聊天
+     * 消息类型
      */
     private Integer type;
 

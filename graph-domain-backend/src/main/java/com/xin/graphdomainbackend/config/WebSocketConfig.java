@@ -1,14 +1,8 @@
 package com.xin.graphdomainbackend.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.xin.graphdomainbackend.Interceptor.WsHandshakeInterceptor;
 import com.xin.graphdomainbackend.manager.websocket.chat.ChatWebSocketHandler;
 import com.xin.graphdomainbackend.manager.websocket.picture.PictureEditHandler;
-import com.xin.graphdomainbackend.manager.websocket.picture.disruptor.PictureEditEventWorkHandler;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;

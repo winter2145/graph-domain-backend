@@ -3,7 +3,6 @@ package com.xin.graphdomainbackend.manager.websocket.picture.handler;
 import cn.hutool.core.collection.CollUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xin.graphdomainbackend.model.vo.message.picture.PictureEditResponseMessage;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;

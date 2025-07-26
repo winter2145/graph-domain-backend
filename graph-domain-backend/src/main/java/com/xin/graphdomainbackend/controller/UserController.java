@@ -22,6 +22,8 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/user")
@@ -29,6 +31,9 @@ public class UserController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 获取验证码
@@ -78,7 +83,6 @@ public class UserController {
         String password = userLoginRequest.getPassword();
         String verifyCode = userLoginRequest.getVerifyCode();
         String serverIfCode = userLoginRequest.getServerIfCode();
-        // String serverIfCode = "";
 
         if (StrUtil.hasBlank(accountOrEmail, password, verifyCode, serverIfCode)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -88,6 +92,12 @@ public class UserController {
         if (result) {
             userVO = userService.userLogin(accountOrEmail, password, request);
         }
+
+        // 设置在线缓存（私聊使用）
+        if (userVO != null && userVO.getId() != null) {
+            stringRedisTemplate.opsForValue().set("online:" + userVO.getId(), "online", 10, TimeUnit.MINUTES);
+        }
+
         return ResultUtils.success(userVO);
     }
 
@@ -108,6 +118,11 @@ public class UserController {
     @PostMapping("/logout")
     public BaseResponse<Boolean> userLogout(HttpServletRequest request) {
         ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
+
+        // 删除用户在线缓存（私聊使用）
+        User user = userService.getLoginUser(request);
+        stringRedisTemplate.delete("online:" + user.getId());
+
         boolean result = userService.userLogout(request);
         return ResultUtils.success(result);
     }

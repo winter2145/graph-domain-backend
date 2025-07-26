@@ -32,7 +32,7 @@ public class ChatEvent {
     private Long targetId;
 
     /**
-     * 目标类型(1-私聊 2-图片聊天室 3-空间聊天)
+     * 目标类型
      */
     private Integer targetType;
 

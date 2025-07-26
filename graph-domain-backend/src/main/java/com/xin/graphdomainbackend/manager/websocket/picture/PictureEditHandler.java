@@ -88,8 +88,6 @@ public class PictureEditHandler extends TextWebSocketHandler {
         } else {
             log.warn("未知的消息类型: {}", pictureEditRequestMessage.getType());
         }
-
-        //pictureEditEventProducer.publishEvent(pictureEditResponseMessage, session, user, pictureId);
     }
 
     @Override

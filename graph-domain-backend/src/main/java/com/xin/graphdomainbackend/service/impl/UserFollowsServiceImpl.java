@@ -162,7 +162,7 @@ public class UserFollowsServiceImpl extends ServiceImpl<UserFollowsMapper, UserF
                 .eq(UserFollows::getFollowStatus, 1)
                 .list();
         return followsList.stream()
-                .map(UserFollows::getFollowId)
+                .map(UserFollows::getFollowingId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }

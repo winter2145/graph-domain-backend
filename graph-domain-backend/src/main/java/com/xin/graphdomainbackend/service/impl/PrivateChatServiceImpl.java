@@ -9,12 +9,14 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.manager.websocket.chat.ChatWebSocketHandler;
+import com.xin.graphdomainbackend.manager.websocket.chat.handler.ChatMessageSessionService;
 import com.xin.graphdomainbackend.mapper.PrivateChatMapper;
 import com.xin.graphdomainbackend.model.dto.privatechat.PrivateChatQueryRequest;
 import com.xin.graphdomainbackend.model.dto.userfollows.UserFollowsIsFollowsRequest;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.entity.websocket.ChatMessage;
 import com.xin.graphdomainbackend.model.entity.websocket.PrivateChat;
+import com.xin.graphdomainbackend.model.enums.ChatMessageTypeEnum;
 import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.model.vo.message.PrivateChatVO;
 import com.xin.graphdomainbackend.service.ChatMessageService;
@@ -30,6 +32,7 @@ import org.springframework.web.socket.WebSocketSession;
 import javax.annotation.Resource;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
 * @author Administrator
@@ -48,6 +51,9 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private ChatMessageSessionService sessionService;
 
 
     @Override
@@ -86,7 +92,7 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
             if (privateChat.getUserId().equals(sender.getId())) {
 
                 // 获取私聊聊天室在线人数
-                Set<WebSocketSession> sessions = ChatWebSocketHandler.getPrivateChatSessions(privateChatId);
+                Set<WebSocketSession> sessions = sessionService.getPrivateChatSessions(privateChatId);
                 boolean bothOnline = sessions != null && sessions.size() == 2;
 
                 // 只有在 1 方不在线时,才增加未读消息数
@@ -97,7 +103,7 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
             } else if (privateChat.getTargetUserId().equals(sender.getId())) {
 
                 // 获取私聊聊天室在线人数
-                Set<WebSocketSession> sessions = ChatWebSocketHandler.getPrivateChatSessions(privateChatId);
+                Set<WebSocketSession> sessions = sessionService.getPrivateChatSessions(privateChatId);
                 boolean bothOnline = sessions != null && sessions.size() == 2;
 
                 // 只有在 1 方不在线时,才增加未读消息数
@@ -378,6 +384,23 @@ public class PrivateChatServiceImpl extends ServiceImpl<PrivateChatMapper, Priva
             chat.setUserUnreadCount(0);
             chat.setTargetUserUnreadCount(0);
             chat.setChatType(chatType);
+
+            // 查找对应的用户名
+            List<User> list = userService.lambdaQuery()
+                    .eq(User::getId, userId)
+                    .or()
+                    .eq(User::getId, targetUserId)
+                    .list();
+            Map<Long, String> userNameMap = list.stream()
+                    .filter(user -> user.getId() != null && user.getUserName() != null)
+                    .collect(Collectors.toMap(
+                            User::getId,      // 键的映射函数
+                            User::getUserName // 值的映射函数
+                    ));
+
+            chat.setTargetUserChatName(userNameMap.get(userId));
+            chat.setUserChatName(userNameMap.get(targetUserId));
+
         } else {
             chat.setChatType(chatType); // 更新聊天类型
         }
