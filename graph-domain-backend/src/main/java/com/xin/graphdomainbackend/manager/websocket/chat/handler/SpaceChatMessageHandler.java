@@ -11,6 +11,9 @@ import org.springframework.web.socket.WebSocketSession;
 
 import javax.annotation.Resource;
 
+/**
+ * 空间聊天消息处理
+ */
 @Component
 @Slf4j
 public class SpaceChatMessageHandler extends ChatMessageHandlerTemplate{

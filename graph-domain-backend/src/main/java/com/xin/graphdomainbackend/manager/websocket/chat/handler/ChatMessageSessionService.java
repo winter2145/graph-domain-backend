@@ -14,9 +14,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class ChatMessageSessionService {
 
-    // 在线用户登记簿 1:1
-    // private static final Map<Long, WebSocketSession> userSessions = new ConcurrentHashMap<>();
-
     // 图片聊天室会话群组 1:N
     private static final Map<Long, Set<WebSocketSession>> pictureSessions = new ConcurrentHashMap<>();
 
@@ -25,34 +22,6 @@ public class ChatMessageSessionService {
 
     // 私聊会话群组 1:N
     private static final Map<Long, Set<WebSocketSession>> privateChatSessions = new ConcurrentHashMap<>();
-
-    // ========== 在线用户管理方法 ==========
-
-    /**
-     * 添加用户在线会话
-     * @param userId 用户ID
-     * @param session WebSocket会话
-     *//*
-    public void addUserSession(Long userId, WebSocketSession session) {
-        userSessions.put(userId, session);
-    }
-
-    *//**
-     * 移除用户在线会话
-     * @param userId 用户ID
-     *//*
-    public void removeUserSession(Long userId) {
-        userSessions.remove(userId);
-    }
-
-    *//**
-     * 获取用户会话
-     * @param userId 用户ID
-     * @return 用户的WebSocket会话，如果不存在则返回null
-     *//*
-    public WebSocketSession getUserSession(Long userId) {
-        return userSessions.get(userId);
-    }*/
 
     // ========== 图片聊天室管理方法 ==========
 
@@ -166,16 +135,5 @@ public class ChatMessageSessionService {
         }
         return privateChatSessions.get(privateChatId);
     }
-
-    // ========== 通用方法 ==========
-
-/*    *//**
-     * 检查用户是否在线
-     * @param userId 用户ID
-     * @return 如果在线返回true，否则返回false
-     *//*
-    public boolean isUserOnline(Long userId) {
-        return userSessions.containsKey(userId);
-    }*/
 
 }

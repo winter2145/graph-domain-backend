@@ -208,14 +208,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        // User user = (User) session.getAttributes().get("user");
         Long pictureId = (Long) session.getAttributes().get("pictureId");
         Long spaceId = (Long) session.getAttributes().get("spaceId");
         Long privateChatId = (Long) session.getAttributes().get("privateChatId");
 
-        // 注意：这里不立即移除用户session，因为用户可能只是关闭了聊天窗口，但仍在网站上
-        // 只有在明确的登出操作时，才应该移除全局在线状态
-        // 为了简化，这里只从特定聊天室中移除会话，保留全局会话
+        // 从特定聊天室中移除会话，保留全局会话
         if (privateChatId != null) {
             Set<WebSocketSession> sessions = sessionService.getPrivateChatSessions(privateChatId);
             sessionService.removePrivateChatSession(privateChatId, session);

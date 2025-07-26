@@ -10,6 +10,9 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.time.Duration;
 
+/**
+ * 心跳检测
+ */
 @RestController
 public class HeartbeatController {
 

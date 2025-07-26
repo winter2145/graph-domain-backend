@@ -229,3 +229,20 @@ CREATE INDEX idx_followStatus
 
 ALTER TABLE user_follows ADD INDEX idx_follower (followerId, followStatus);
 ALTER TABLE user_follows ADD INDEX idx_following (followingId, followStatus);
+
+CREATE TABLE comments
+(
+    commentId       bigint AUTO_INCREMENT
+        PRIMARY KEY,
+    userId          bigint                               NOT NULL,
+    targetId        bigint                               NOT NULL COMMENT '评论目标ID',
+    targetType      tinyint    DEFAULT 1                 NOT NULL COMMENT '评论目标类型：1-图片 2-帖子',
+    targetUserId    bigint                               NOT NULL COMMENT '评论目标所属用户ID',
+    content         text                                 NOT NULL,
+    createTime      datetime   DEFAULT CURRENT_TIMESTAMP NULL,
+    parentCommentId bigint     DEFAULT 0                 NULL COMMENT '0表示顶级',
+    isDelete        tinyint(1) DEFAULT 0                 NULL,
+    likeCount       bigint     DEFAULT 0                 NULL,
+    dislikeCount    bigint     DEFAULT 0                 NULL,
+    isRead          tinyint(1) DEFAULT 0                 NOT NULL COMMENT '是否已读（0-未读，1-已读）'
+);

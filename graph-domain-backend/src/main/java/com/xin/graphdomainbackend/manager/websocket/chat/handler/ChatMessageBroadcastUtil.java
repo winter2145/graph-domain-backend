@@ -22,7 +22,9 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-
+/**
+ * 聊天广播工具类
+ */
 @Component
 @Slf4j
 public class ChatMessageBroadcastUtil {
@@ -246,8 +248,6 @@ public class ChatMessageBroadcastUtil {
     }
 
     private boolean isUserOnline(Long userId) {
-/*        Set<String> keys = stringRedisTemplate.keys("*"); // 获取所有键
-        System.out.println("All keys: " + keys);*/
         return Boolean.TRUE.equals(stringRedisTemplate.hasKey("online:" + userId));
     }
 

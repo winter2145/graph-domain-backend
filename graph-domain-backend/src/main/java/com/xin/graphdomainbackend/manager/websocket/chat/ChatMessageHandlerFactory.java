@@ -12,6 +12,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 消息类型（messageType）动态获取对应的消息处理器
+ */
 @Component
 public class ChatMessageHandlerFactory {
 

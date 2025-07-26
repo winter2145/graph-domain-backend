@@ -12,6 +12,9 @@ import org.springframework.web.socket.WebSocketSession;
 import javax.annotation.Resource;
 import java.io.IOException;
 
+/**
+ * 图片聊天消息处理
+ */
 @Component
 @Slf4j
 public class PictureChatMessageHandler extends ChatMessageHandlerTemplate{
