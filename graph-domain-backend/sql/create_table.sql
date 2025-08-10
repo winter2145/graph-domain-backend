@@ -151,6 +151,7 @@ CREATE INDEX idx_sender_receiver
 
 CREATE INDEX idx_space
     ON chat_message (spaceId);
+
 -- 私聊表
 CREATE TABLE private_chat
 (
@@ -230,6 +231,7 @@ CREATE INDEX idx_followStatus
 ALTER TABLE user_follows ADD INDEX idx_follower (followerId, followStatus);
 ALTER TABLE user_follows ADD INDEX idx_following (followingId, followStatus);
 
+-- 评论表
 CREATE TABLE comments
 (
     commentId       bigint AUTO_INCREMENT
@@ -238,11 +240,30 @@ CREATE TABLE comments
     targetId        bigint                               NOT NULL COMMENT '评论目标ID',
     targetType      tinyint    DEFAULT 1                 NOT NULL COMMENT '评论目标类型：1-图片 2-帖子',
     targetUserId    bigint                               NOT NULL COMMENT '评论目标所属用户ID',
-    content         text                                 NOT NULL,
-    createTime      datetime   DEFAULT CURRENT_TIMESTAMP NULL,
+    content         text                                 NOT NULL COMMENT '评论内容',
+    createTime      datetime   DEFAULT CURRENT_TIMESTAMP NULL COMMENT '创建时间',
     parentCommentId bigint     DEFAULT 0                 NULL COMMENT '0表示顶级',
-    isDelete        tinyint(1) DEFAULT 0                 NULL,
-    likeCount       bigint     DEFAULT 0                 NULL,
-    dislikeCount    bigint     DEFAULT 0                 NULL,
+    isDelete        tinyint(1) DEFAULT 0                 NULL COMMENT '是否删除，0 表示未删除，1 表示已删除',
+    likeCount       bigint     DEFAULT 0                 NULL COMMENT '喜欢数量',
+    dislikeCount    bigint     DEFAULT 0                 NULL COMMENT '不喜欢数量',
     isRead          tinyint(1) DEFAULT 0                 NOT NULL COMMENT '是否已读（0-未读，1-已读）'
+);
+ALTER TABLE comments ADD INDEX idx_comments_parent_deleted (parentCommentId, isDelete);
+ALTER TABLE comments ADD INDEX idx_comments_query_top (targetId, targetType, parentCommentId, createTime DESC);
+
+-- 点赞表
+CREATE TABLE like_record
+(
+    id            bigint AUTO_INCREMENT COMMENT '主键 ID'
+        PRIMARY KEY,
+    userId        bigint                               NOT NULL COMMENT '用户 ID',
+    targetId      bigint                               NOT NULL COMMENT '被点赞内容的ID',
+    targetType    tinyint                              NOT NULL COMMENT '内容类型：1-图片 2-帖子 3-空间',
+    targetUserId  bigint                               NOT NULL COMMENT '被点赞内容所属用户ID',
+    isLiked       tinyint(1)                           NOT NULL COMMENT '是否点赞',
+    firstLikeTime datetime   DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '第一次点赞时间',
+    lastLikeTime  datetime                             NOT NULL COMMENT '最近一次点赞时间',
+    isRead        tinyint(1) DEFAULT 0                 NOT NULL COMMENT '是否已读（0-未读，1-已读）',
+    CONSTRAINT uk_user_target
+        UNIQUE (userId, targetId, targetType)
 );

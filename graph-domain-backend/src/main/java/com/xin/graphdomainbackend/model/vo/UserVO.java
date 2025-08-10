@@ -1,6 +1,10 @@
 package com.xin.graphdomainbackend.model.vo;
 
+import cn.hutool.core.bean.BeanUtil;
+import com.xin.graphdomainbackend.model.vo.comment.CommentUserVO;
+import com.xin.graphdomainbackend.model.vo.comment.CommentsVO;
 import lombok.Data;
+import org.springframework.context.annotation.Bean;
 
 import java.io.Serializable;
 import java.util.Date;
@@ -39,5 +43,15 @@ public class UserVO implements Serializable {
 
     // 在线状态
     private Boolean online;
+
+    public static CommentUserVO objToCommentUserVO(UserVO userVO) {
+        if (userVO == null) {
+            return null;
+        }
+        CommentUserVO commentUserVO = new CommentUserVO();
+        BeanUtil.copyProperties(userVO, commentUserVO);
+
+        return commentUserVO;
+    }
 
 }

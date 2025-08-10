@@ -839,7 +839,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     }
 
     @Override
-    @Async
+    @Async("asyncExecutor")
     public void clearPictureFile(Picture oldPicture) {
         if (oldPicture == null) {
             // 若 oldPicture 为 null，直接返回，避免空指针异常
