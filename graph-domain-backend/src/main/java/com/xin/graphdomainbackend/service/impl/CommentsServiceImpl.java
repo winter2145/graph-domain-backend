@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.plugins.pagination.PageDTO;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.xin.graphdomainbackend.constant.LikeTargetType;
+import com.xin.graphdomainbackend.constant.TargetTypeConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.mapper.CommentsMapper;
@@ -17,6 +17,7 @@ import com.xin.graphdomainbackend.model.dto.comments.CommentsDeleteRequest;
 import com.xin.graphdomainbackend.model.dto.comments.CommentsLikeRequest;
 import com.xin.graphdomainbackend.model.dto.comments.CommentsQueryRequest;
 import com.xin.graphdomainbackend.model.entity.Comments;
+import com.xin.graphdomainbackend.model.entity.LikeRecord;
 import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.enums.MessageSourceEnum;
@@ -79,7 +80,18 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
         // 获取图片信息
         Picture picture = pictureService.getById(commentsAddRequest.getTargetId());
         ThrowUtils.throwIf(picture == null, ErrorCode.NOT_FOUND_ERROR);
+
+        // 默认是给图片评论
         Long targetUserId = picture.getUserId();
+
+        // 如果是评论下的回复
+        Long parentCommentId = commentsAddRequest.getParentCommentId();
+        Comments comment = this.lambdaQuery().select(parentCommentId!=null && parentCommentId > 0, Comments::getUserId)
+                .eq(Comments::getCommentId, parentCommentId)
+                .one();
+        if (comment != null) {
+            targetUserId = comment.getUserId();
+        }
 
         Comments comments = new Comments();
         BeanUtil.copyProperties(commentsAddRequest, comments);
@@ -138,7 +150,7 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
         ThrowUtils.throwIf(commentsQueryRequest == null || commentsQueryRequest.getTargetId() == null,
                 ErrorCode.PARAMS_ERROR);
 
-        // 创建分页对象
+        // 1.创建分页对象
         long current = commentsQueryRequest.getCurrent();
         long size = commentsQueryRequest.getPageSize();
         Page<Comments> page = new Page<>(current, size);
@@ -147,14 +159,13 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
         Integer targetType = commentsQueryRequest.getTargetType() != null
                 ? commentsQueryRequest.getTargetType() : 1;
 
-        // 构建查询顶级评论的 对象（parentCommentId = 0）
+        // 2.构建查询顶级评论的 对象（parentCommentId = 0）
         LambdaQueryWrapper<Comments> lambdaQueryWrapper = new LambdaQueryWrapper<>();
         lambdaQueryWrapper
                 .eq(Comments::getTargetId, targetId)
                 .eq(Comments::getTargetType, targetType) // 默认查询图片评论
                 .eq(Comments::getParentCommentId, 0) // 查询顶级评论
                 .orderByDesc(Comments::getCreateTime);
-
 
         // 得到顶级评论列表
         Page<Comments> commentsPage = page(page, lambdaQueryWrapper);
@@ -166,37 +177,112 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
 
         // 所有用户 ID 收集器（顶级 + 子评论）
         Set<Long> allUserIds = new HashSet<>();
+        // 所有评论 ID 收集器（顶级 + 子评论）
+        Set<Long> allCommentIds = new HashSet<>();
 
-        // 构建顶级评论 VO，并填充子评论树
+        // 3.构建顶级评论 VO，并填充子评论树
         List<CommentsVO> commentsVOList = topCommentsList.stream().map(comment -> {
-            CommentsVO vo = new CommentsVO();
-            BeanUtils.copyProperties(comment, vo);
+            CommentsVO vo = CommentsVO.objToVo(comment);
 
-            // 填充顶级评论的 用户id
+            // 获取顶级评论的 用户id与评论id ，用于后续填充顶级评论的 用户id 和 评论id
             allUserIds.add(vo.getUserId());
+            allCommentIds.add(vo.getCommentId());
 
             // 获取并构建子评论树
-            List<CommentsVO> childCommentTree = getAllChildAsTree(comment.getCommentId(), allUserIds);
+            List<CommentsVO> childCommentTree = getAllChildAsTreeWithIds(comment.getCommentId(), allUserIds, allCommentIds);
             vo.setChildren(childCommentTree);
 
             return vo;
         }).collect(Collectors.toList());
 
-        // 批量查询用户信息
+        // 4.批量查询用户信息
         List<User> users = userService.listByIds(allUserIds);
-        Map<Long, CommentUserVO> userVOMap = users.stream().map(user -> {
-            CommentUserVO vo = new CommentUserVO();
-            BeanUtils.copyProperties(user, vo);
-            return vo;
-        }).collect(Collectors.toMap(CommentUserVO::getId, vo -> vo));
+        Map<Long, CommentUserVO> userVOMap = users.stream()
+                .map(user -> {
+                    CommentUserVO vo = new CommentUserVO();
+                    BeanUtils.copyProperties(user, vo);
+                    return vo;
+                })
+                .collect(Collectors.toMap(CommentUserVO::getId, vo -> vo));
 
-        // 填充用户信息
+        // 5.填充用户信息
         commentsVOList.forEach(vo -> attachUser(vo, userVOMap));
+
+        // 6.批量查询当前用户对所有评论的点赞状态
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser != null && !allCommentIds.isEmpty()) {
+            List<LikeRecord> commentLikeRecords = likeRecordService.getLikeRecordsByTargetIds(allCommentIds, TargetTypeConstant.COMMENT);
+
+            // 提取出当前用户 点赞记录的评论id
+            Map<Long, Integer> likeStatusMap = commentLikeRecords.stream()
+                    .filter(likeRecord -> likeRecord.getUserId().equals(loginUser.getId()))
+                    .collect(Collectors.toMap(LikeRecord::getTargetId, LikeRecord::getLikeStatus));
+
+            // 设置所有评论的点赞状态（包括子评论）
+            setLikeStatusForAllComments(commentsVOList, likeStatusMap);
+        }
 
         // 构造分页结果
         Page<CommentsVO> resultPage = new Page<>(current, size, commentsPage.getTotal());
         resultPage.setRecords(commentsVOList);
         return resultPage;
+    }
+
+    /**
+     * 获取子评论树，并收集用户ID和评论ID
+     */
+    private List<CommentsVO> getAllChildAsTreeWithIds(Long parentId, Set<Long> allUserIds, Set<Long> allCommentIds) {
+        // 1. 一次性查询所有子评论（含完整数据）
+        List<Comments> allChildCommentList = findAllNestedComments(parentId);
+
+        // 2. 收集用户ID和评论ID（用于后续批量查询用户信息和点赞状态）
+        allChildCommentList.forEach(c -> {
+            allUserIds.add(c.getUserId());
+            allCommentIds.add(c.getCommentId());
+        });
+
+        // 3. 按 parentId 分组
+        Map<Long, List<CommentsVO>> parentMap = new HashMap<>();
+        for (Comments c : allChildCommentList) {
+            CommentsVO vo = new CommentsVO();
+            BeanUtils.copyProperties(c, vo);
+            parentMap.computeIfAbsent(c.getParentCommentId(), k -> new ArrayList<>()).add(vo);
+        }
+
+        // 4. 递归构建树形结构
+        return buildCommentTree(parentId, parentMap);
+    }
+
+    /**
+     * 构建评论树结构
+     */
+    private List<CommentsVO> buildCommentTree(Long parentId, Map<Long, List<CommentsVO>> parentMap) {
+        List<CommentsVO> childrenCommentsVO = parentMap.getOrDefault(parentId, new ArrayList<>());
+        for (CommentsVO child : childrenCommentsVO) {
+            child.setChildren(buildCommentTree(child.getCommentId(), parentMap));
+        }
+        return childrenCommentsVO;
+    }
+
+    /**
+     * BFS（广度优先遍历）设置所有评论的点赞状态
+     */
+    private void setLikeStatusForAllComments(List<CommentsVO> commentsVOList, Map<Long, Integer> likeStatusMap) {
+        // 初始化队列
+        Queue<CommentsVO> queue = new LinkedList<>(commentsVOList);
+        while (!queue.isEmpty()) {
+            // 1. 取出当前节点
+            CommentsVO current = queue.poll();
+
+            // 2. 设置点赞状态（若无记录则默认为0）
+            Integer likeStatus = likeStatusMap.getOrDefault(current.getCommentId(), 0);
+            current.setLikeStatus(likeStatus);
+
+            // 3. 将子评论加入队列（确保非空判断）
+            if (current.getChildren() != null) {
+                queue.addAll(current.getChildren());
+            }
+        }
     }
 
     @Override
@@ -369,43 +455,53 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
         Comments comments = getOne(commentsQueryWrapper);
         ThrowUtils.throwIf(comments == null, ErrorCode.NOT_FOUND_ERROR);
 
-        Long likeCount = commentsLikeRequest.getLikeCount();
-        Long dislikeCount = commentsLikeRequest.getDislikeCount();
-
-        Integer targetType = LikeTargetType.COMMENT;
+        Integer targetType = TargetTypeConstant.COMMENT;
         Boolean updateResult = false;
 
-        // 处理点赞操作
-        if (likeCount != null && likeCount != 0) {
-            // 判断是点赞还是取消点赞
-            Boolean isLike = likeCount > 0;
-            updateResult = likeRecordService.dealDoLike(loginUser.getId(), comments.getCommentId(), targetType, isLike, comments.getUserId());
+        // 计算新的点赞状态
+        Integer newLikeStatus = calculateNewLikeStatus(commentsLikeRequest);
 
-            if (updateResult) {
-                // 更新评论表中的点赞数量
-                lambdaUpdate().setSql("likeCount = likeCount + " + likeCount)
-                        .eq(Comments::getCommentId, commentsLikeRequest.getCommentId())
-                        .update();
-            }
-        }
+        // 处理点赞/点踩操作
+        updateResult = likeRecordService.dealLikeOrDislike(
+                loginUser.getId(), comments.getCommentId(), targetType, newLikeStatus, comments.getUserId()
+        );
 
-        // 处理点踩操作
-        if (dislikeCount != null && dislikeCount != 0) {
-            // 判断是点踩还是取消点踩
-            Boolean isLike = false; // 点踩操作，isLike 为 false
-            updateResult = likeRecordService.dealDoLike(loginUser.getId(), comments.getCommentId(), targetType, isLike, comments.getUserId());
-
-            if (updateResult) {
-                // 更新评论表中的点踩数量
-                lambdaUpdate().setSql("dislikeCount = dislikeCount + " + dislikeCount)
-                        .eq(Comments::getCommentId, commentsLikeRequest.getCommentId())
-                        .update();
-            }
+        if (updateResult) {
+            // 更新评论表点赞、踩的数量
+            updateCommentCounts(commentsLikeRequest,  comments.getCommentId());
         }
 
         return true;
     }
 
+    // 计算新的点赞状态
+    private Integer calculateNewLikeStatus(CommentsLikeRequest request) {
+        // 根据前端传递的 likeCount 和 dislikeCount 计算新状态
+        if (request.getLikeCount() != null && request.getLikeCount() > 0) {
+            return 1; // 点赞
+        } else if (request.getDislikeCount() != null && request.getDislikeCount() > 0) {
+            return 2; // 点踩
+        } else {
+            return 0; // 取消操作
+        }
+    }
+
+    // 更新评论表点赞、踩的数量
+    private void updateCommentCounts(CommentsLikeRequest request, Long commentId) {
+        if (request.getLikeCount() != null && request.getLikeCount() != 0) {
+            this.lambdaUpdate()
+                    .setSql("likeCount = likeCount + " + request.getLikeCount())
+                    .eq(Comments::getCommentId, commentId)
+                    .update();
+        }
+
+        if (request.getDislikeCount() != null && request.getDislikeCount() != 0) {
+            this.lambdaUpdate()
+                    .setSql("dislikeCount = dislikeCount + " + request.getDislikeCount())
+                    .eq(Comments::getCommentId, commentId)
+                    .update();
+        }
+    }
 
     /**
      * 批量查找子评论id
@@ -415,38 +511,12 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
         return commentsMapper.selectAllChildCommentIds(parentId);
     }
 
-    // 获取所有子评论树
-    private List<CommentsVO> getAllChildAsTree(Long parentId,  Set<Long> userIdCollector) {
-        // 批量查找子评论id
-        List<Long> childIdList = findAllNestedCommentIds(parentId);
-        if (childIdList == null || childIdList.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        // 查找子评论
-        List<Comments> allChildCommentList = this.listByIds(childIdList);
-        // 收集所有用户 ID
-        allChildCommentList.forEach(c -> userIdCollector.add(c.getUserId()));
-
-        // 按 parentId 分组
-        Map<Long, List<CommentsVO>> parentMap = new HashMap<>();
-        for (Comments c : allChildCommentList) {
-            CommentsVO vo = new CommentsVO();
-            BeanUtils.copyProperties(c, vo);
-            parentMap.computeIfAbsent(c.getParentCommentId(), k -> new ArrayList<>()).add(vo);
-        }
-
-        // 递归组装
-        return buildCommentTree(parentId, parentMap);
-    }
-
-    // 构建评论树结构
-    private List<CommentsVO> buildCommentTree(Long parentId, Map<Long, List<CommentsVO>> parentMap) {
-        List<CommentsVO> childrenCommentsVO = parentMap.getOrDefault(parentId, new ArrayList<>());
-        for (CommentsVO child : childrenCommentsVO) {
-            child.setChildren(buildCommentTree(child.getCommentId(), parentMap));
-        }
-        return childrenCommentsVO;
+    /**
+     * 批量查找子评论
+     * @param parentId 父评论id
+     */
+    private List<Comments> findAllNestedComments(Long parentId){
+        return commentsMapper.selectAllChildCommentsWithDetails(parentId);
     }
 
     // 绑定用户信息

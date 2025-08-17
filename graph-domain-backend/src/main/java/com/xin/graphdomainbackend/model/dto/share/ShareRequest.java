@@ -1,12 +1,12 @@
-package com.xin.graphdomainbackend.model.dto.like;
+package com.xin.graphdomainbackend.model.dto.share;
 
 import lombok.Data;
 
 /**
- * 点赞请求
+ * 分享请求
  */
 @Data
-public class LikeRequest {
+public class ShareRequest {
     /**
      * 目标内容ID
      */
@@ -18,7 +18,7 @@ public class LikeRequest {
     private Integer targetType;
 
     /**
-     * 是否点赞
+     * 是否分享
      */
-    private Integer isLiked;
+    private Boolean isShared;
 }

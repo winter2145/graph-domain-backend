@@ -44,14 +44,4 @@ public class UserVO implements Serializable {
     // 在线状态
     private Boolean online;
 
-    public static CommentUserVO objToCommentUserVO(UserVO userVO) {
-        if (userVO == null) {
-            return null;
-        }
-        CommentUserVO commentUserVO = new CommentUserVO();
-        BeanUtil.copyProperties(userVO, commentUserVO);
-
-        return commentUserVO;
-    }
-
 }

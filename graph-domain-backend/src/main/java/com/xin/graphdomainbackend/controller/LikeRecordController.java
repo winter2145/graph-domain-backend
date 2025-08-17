@@ -41,10 +41,10 @@ public class LikeRecordController {
         User loginUser = userService.getLoginUser(request);
 
         try {
-            CompletableFuture<Boolean> future = likeRecordService.doLike(likeRequest, loginUser.getId());
+            CompletableFuture<Boolean> success = likeRecordService.doLike(likeRequest, loginUser.getId());
             return ResultUtils.success(true);
         } catch (Exception e) {
-            log.error(" 点赞失败:{}",e);
+            log.error("点赞失败，原因：{}", e.getMessage());
             return ResultUtils.success(false);
         }
     }

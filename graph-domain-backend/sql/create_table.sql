@@ -231,6 +231,23 @@ CREATE INDEX idx_followStatus
 ALTER TABLE user_follows ADD INDEX idx_follower (followerId, followStatus);
 ALTER TABLE user_follows ADD INDEX idx_following (followingId, followStatus);
 
+-- 点赞表
+CREATE TABLE like_record
+(
+    id            bigint AUTO_INCREMENT COMMENT '主键 ID'
+        PRIMARY KEY,
+    userId        bigint                               NOT NULL COMMENT '用户 ID',
+    targetId      bigint                               NOT NULL COMMENT '被点赞内容的ID',
+    targetType    tinyint                              NOT NULL COMMENT '内容类型：1-图片 2-帖子 3-空间',
+    targetUserId  bigint                               NOT NULL COMMENT '被点赞内容所属用户ID',
+    isLiked       tinyint(1)                           NOT NULL COMMENT '是否点赞',
+    firstLikeTime datetime   DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '第一次点赞时间',
+    lastLikeTime  datetime                             NOT NULL COMMENT '最近一次点赞时间',
+    isRead        tinyint(1) DEFAULT 0                 NOT NULL COMMENT '是否已读（0-未读，1-已读）',
+    CONSTRAINT uk_user_target
+        UNIQUE (userId, targetId, targetType)
+);
+
 -- 评论表
 CREATE TABLE comments
 (
@@ -251,19 +268,41 @@ CREATE TABLE comments
 ALTER TABLE comments ADD INDEX idx_comments_parent_deleted (parentCommentId, isDelete);
 ALTER TABLE comments ADD INDEX idx_comments_query_top (targetId, targetType, parentCommentId, createTime DESC);
 
--- 点赞表
-CREATE TABLE like_record
+-- 分享表
+CREATE TABLE share_record
 (
-    id            bigint AUTO_INCREMENT COMMENT '主键 ID'
+    id           bigint AUTO_INCREMENT COMMENT '分享ID'
         PRIMARY KEY,
-    userId        bigint                               NOT NULL COMMENT '用户 ID',
-    targetId      bigint                               NOT NULL COMMENT '被点赞内容的ID',
-    targetType    tinyint                              NOT NULL COMMENT '内容类型：1-图片 2-帖子 3-空间',
-    targetUserId  bigint                               NOT NULL COMMENT '被点赞内容所属用户ID',
-    isLiked       tinyint(1)                           NOT NULL COMMENT '是否点赞',
-    firstLikeTime datetime   DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '第一次点赞时间',
-    lastLikeTime  datetime                             NOT NULL COMMENT '最近一次点赞时间',
-    isRead        tinyint(1) DEFAULT 0                 NOT NULL COMMENT '是否已读（0-未读，1-已读）',
-    CONSTRAINT uk_user_target
-        UNIQUE (userId, targetId, targetType)
-);
+    userId       bigint                               NOT NULL COMMENT '用户ID',
+    targetId     bigint                               NOT NULL COMMENT '被分享内容的ID',
+    targetType   tinyint                              NOT NULL COMMENT '内容类型：1-图片 2-帖子',
+    targetUserId bigint                               NOT NULL COMMENT '被分享内容所属用户ID',
+    isShared     tinyint(1) DEFAULT 1                 NOT NULL COMMENT '是否分享',
+    sharedCount  bigint                               NOT NULL COMMENT '分享的数量',
+    shareTime    datetime   DEFAULT CURRENT_TIMESTAMP NULL COMMENT '分享时间',
+    isRead       tinyint(1) DEFAULT 0                 NOT NULL COMMENT '是否已读（0-未读，1-已读）'
+)
+    COMMENT '分享记录表' COLLATE = utf8mb4_unicode_ci;
+
+CREATE INDEX idx_target
+    ON share_record (targetId, targetType);
+
+CREATE INDEX idx_targetUserId_isRead
+    ON share_record (targetUserId, isRead);
+
+CREATE INDEX idx_userId_isRead
+    ON share_record (userId, isRead);
+
+CREATE INDEX idx_userId_targetType
+    ON share_record (userId, targetType);
+
+-- 分享流水表
+CREATE TABLE share_history
+(
+   id           bigint AUTO_INCREMENT PRIMARY KEY,
+   userId       bigint                     NOT NULL COMMENT '用户ID',
+   targetId     bigint                     NOT NULL COMMENT '被分享内容的ID',
+   targetType   tinyint                    NOT NULL COMMENT '内容类型：1-图片 ',
+   targetUserId bigint                     NOT NULL COMMENT '被分享内容所属用户ID',
+   shareTime    datetime  DEFAULT CURRENT_TIMESTAMP COMMENT '分享时间'
+) COMMENT='记录用户每一次真实的分享行为' COLLATE = utf8mb4_unicode_ci;

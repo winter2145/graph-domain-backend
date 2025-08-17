@@ -21,9 +21,8 @@ public class CommentsLikeRequest  implements Serializable {
      */
     private Long userId;
 
-
     /**
-     *   点赞评论内容
+     *  点赞评论内容
      */
     private Long likeCount;
 

@@ -3,7 +3,7 @@ package com.xin.graphdomainbackend.constant;
 /**
  * 点赞类型 常量类
  */
-public class LikeTargetType {
+public class TargetTypeConstant {
     public static final int IMAGE = 1;
     public static final int POST = 2;
     public static final int SPACE = 3;

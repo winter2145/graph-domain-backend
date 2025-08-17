@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.xin.graphdomainbackend.constant.LikeTargetType;
+import com.xin.graphdomainbackend.constant.TargetTypeConstant;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.mapper.LikeRecordMapper;
 import com.xin.graphdomainbackend.mapper.PictureMapper;
@@ -70,7 +70,7 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
 
             Long targetId = likeRequest.getTargetId();
             Integer targetType = likeRequest.getTargetType();
-            Boolean isLiked = likeRequest.getIsLiked();
+            Integer isLiked = likeRequest.getIsLiked();
 
             // 参数校验
             if (targetId == null || targetType == null || isLiked == null || userId == null) {
@@ -83,11 +83,11 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
             ThrowUtils.throwIf(targetPicture == null, ErrorCode.NOT_FOUND_ERROR);
             Long targetUserId = targetPicture.getUserId();
 
-            Boolean success = dealDoLike(userId, targetId, targetType, isLiked, targetUserId);
+            Boolean success = dealLikeOrDislike(userId, targetId, targetType, isLiked, targetUserId);
 
             // 更新图片 的点赞数量
             if (success) {
-                updateLikeCount(targetId, targetType, isLiked ? 1 : -1);
+                updateLikeCount(targetId, targetType, isLiked == 1 ? 1 : -1);
             }
             return CompletableFuture.completedFuture(true);
         } catch (Exception e) {
@@ -95,7 +95,7 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
         }
     }
 
-    public Boolean dealDoLike(Long userId, Long targetId, Integer targetType, Boolean isLiked, Long targetUserId) {
+    public Boolean dealLikeOrDislike(Long userId, Long targetId, Integer targetType, Integer newStatus, Long targetUserId) {
         // 查询当前点赞状态
         LikeRecord oldLikeRecord = this.lambdaQuery()
                 .eq(LikeRecord::getUserId, userId)
@@ -113,27 +113,24 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
             likeRecord.setTargetId(targetId);
             likeRecord.setTargetType(targetType);
             likeRecord.setTargetUserId(targetUserId);
-            likeRecord.setIsLiked(isLiked);
+            likeRecord.setLikeStatus(newStatus);
             likeRecord.setFirstLikeTime(new Date());
             likeRecord.setLastLikeTime(new Date());
             likeRecord.setIsRead(0); // 未读状态
             result = this.save(likeRecord);
         } else {
             // 更新现有记录
-            if (!isLiked.equals(oldLikeRecord.getIsLiked())) {
+            if (!newStatus.equals(oldLikeRecord.getLikeStatus())) {
                 // 状态发生变化，更新记录
-                oldLikeRecord.setIsLiked(isLiked);
+                oldLikeRecord.setLikeStatus(newStatus);
                 oldLikeRecord.setLastLikeTime(new Date());
                 oldLikeRecord.setTargetUserId(targetUserId);
 
                 // 如果是点赞操作，设置为未读
-                if (isLiked) {
+                if (newStatus == 1) {
                     oldLikeRecord.setIsRead(0);
                 }
                 result = this.updateById(oldLikeRecord);
-            } else {
-                // 状态没有变化，可能是重复操作，返回true表示操作成功
-                result = true;
             }
         }
 
@@ -154,11 +151,11 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
         LambdaQueryWrapper<LikeRecord> lambdaQueryWrapper = new LambdaQueryWrapper<>();
         if (source == MessageSourceEnum.TO_ME.getValue()) {
             lambdaQueryWrapper.eq(LikeRecord::getTargetUserId, userId) // 查询被点赞的记录
-                    .eq(LikeRecord::getIsLiked, true)  // 只查询点赞状态为true的记录
+                    .eq(LikeRecord::getLikeStatus, 1)  // 只查询点赞状态为true的记录
                     .ne(LikeRecord::getUserId, userId); // 排除自己点赞自己的记录
         } else if (source == MessageSourceEnum.FROM_ME.getValue()) {
             lambdaQueryWrapper.eq(LikeRecord::getUserId, userId) // 查询我点赞的记录
-                    .eq(LikeRecord::getIsLiked, true);
+                    .eq(LikeRecord::getLikeStatus, 1);
         }
 
         // 处理目标类型查询
@@ -187,8 +184,51 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
         return this.count(new LambdaQueryWrapper<LikeRecord>()
                 .eq(LikeRecord::getTargetUserId, userId)
                 .eq(LikeRecord::getIsRead, 0)
-                .eq(LikeRecord::getIsLiked, true)
+                .eq(LikeRecord::getLikeStatus, 1)
                 .ne(LikeRecord::getUserId, userId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void clearAllUnreadLikes(Long userId) {
+        this.lambdaUpdate().set(LikeRecord::getIsRead, 1)
+                .eq(LikeRecord::getTargetUserId, userId)
+                .eq(LikeRecord::getIsRead, 0)
+                .eq(LikeRecord::getLikeStatus, 1)
+                .update();
+    }
+
+    @Override
+    public Boolean getIsLike(Long userId, Long targetId) {
+        return this.lambdaQuery().eq(LikeRecord::getUserId, userId)
+                .eq(LikeRecord::getTargetId, targetId)
+                .eq(LikeRecord::getTargetType, TargetTypeConstant.IMAGE)
+                .eq(LikeRecord::getLikeStatus, 1)
+                .exists();
+    }
+
+    @Override
+    public List<LikeRecord> getLikeRecordsByTargetIds(Set<Long> targetIds, Integer targetType) {
+        if (targetIds == null || targetIds.isEmpty()) {
+            return Collections.emptyList(); // 避免生成 `IN ()` 的错误 SQL
+        }
+        List<LikeRecord> list = null;
+        switch (targetType) {
+            case TargetTypeConstant.IMAGE:
+                list = this.lambdaQuery()
+                        .eq(LikeRecord::getTargetType, TargetTypeConstant.IMAGE) // 确保是图片类型的点赞
+                        .eq(LikeRecord::getLikeStatus, 1) // 只查已点赞的记录
+                        .in(LikeRecord::getTargetId, targetIds) // 按目标 ID 批量查询
+                        .list();
+                break;
+            case TargetTypeConstant.COMMENT:
+                list = this.lambdaQuery()
+                        .eq(LikeRecord::getTargetType, TargetTypeConstant.COMMENT)
+                        .in(LikeRecord::getTargetId, targetIds) // 按目标 ID 批量查询
+                        .list();
+        }
+
+        return list;
     }
 
     private List<LikeRecordVO> convertToVOList(List<LikeRecord> likeRecords) {
@@ -201,14 +241,9 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
                 .map(LikeRecord::getUserId)
                 .collect(Collectors.toSet());
 
-        // 同时收集图片作者 & 帖子作者
+        // 收集图片作者
         List<Long> pictureIds = likeRecords.stream()
-                .filter(like -> like.getTargetType() == 1)
-                .map(LikeRecord::getTargetId)
-                .collect(Collectors.toList());
-
-        List<Long> commentIds = likeRecords.stream()
-                .filter(like -> like.getTargetType() == 4)
+                .filter(like -> like.getTargetType() == TargetTypeConstant.IMAGE)
                 .map(LikeRecord::getTargetId)
                 .collect(Collectors.toList());
 
@@ -217,6 +252,12 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
                 : pictureService.listByIds(pictureIds).stream()
                 .peek(pic -> allUserIds.add(pic.getUserId()))
                 .collect(Collectors.toMap(Picture::getId, Function.identity()));
+
+        // 收集评论信息（新增）
+        List<Long> commentIds = likeRecords.stream()
+                .filter(like -> like.getTargetType() == TargetTypeConstant.COMMENT)
+                .map(LikeRecord::getTargetId)
+                .collect(Collectors.toList());
 
         Map<Long, Comments> commentMap = commentIds.isEmpty()
                 ? Collections.emptyMap()
@@ -240,7 +281,7 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
 
             // 目标内容
             switch (like.getTargetType()) {
-                case LikeTargetType.IMAGE: // 图片
+                case TargetTypeConstant.IMAGE: // 图片
                     Picture picture = pictureMap.get(like.getTargetId());
                     if (picture != null) {
                         PictureVO pictureVO = PictureVO.objToVo(picture);
@@ -248,12 +289,12 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
                         vo.setTarget(pictureVO);
                     }
                     break;
-                case LikeTargetType.COMMENT: // 评论
+                case TargetTypeConstant.COMMENT: // 评论
                     Comments comments = commentMap.get(like.getTargetId());
                     if (comments != null) {
                         CommentsVO commentsVO = CommentsVO.objToVo(comments);
                         UserVO userVO = userVOMap.get(comments.getUserId());
-                        CommentUserVO commentUserVO = UserVO.objToCommentUserVO(userVO);
+                        CommentUserVO commentUserVO = CommentUserVO.objToCommentUserVO(userVO);
                         commentsVO.setCommentUser(commentUserVO);
                         vo.setTarget(commentsVO);
                     }
@@ -273,10 +314,10 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
                 .eq(LikeRecord::getIsRead, 0)
                 .ne(LikeRecord::getUserId, userId)
                 .in(LikeRecord::getTargetType,  Arrays.asList(
-                        LikeTargetType.IMAGE,
-                        LikeTargetType.POST,
-                        LikeTargetType.SPACE,
-                        LikeTargetType.COMMENT
+                        TargetTypeConstant.IMAGE,
+                        TargetTypeConstant.POST,
+                        TargetTypeConstant.SPACE,
+                        TargetTypeConstant.COMMENT
                 ))
                 .orderByDesc(LikeRecord::getLastLikeTime)
                 .last("LIMIT 50"); // 限制最多返回50条数据
@@ -301,16 +342,11 @@ public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRec
 
     private void updateLikeCount(Long targetId, Integer targetType, int delta) {
         int updated = 0;
-        if (targetType == LikeTargetType.IMAGE) {
-            updated = pictureMapper.update(null,
-                    Wrappers.<Picture>lambdaUpdate()
-                            .setSql("likeCount = likeCount + " + delta)
-                            .eq(Picture::getId, targetId)
-                            .ge(Picture::getLikeCount, -delta)
-            );
+        if (targetType == TargetTypeConstant.IMAGE) {
+            updated = pictureMapper.updateLikeCount(targetId, delta);
         }
         if (updated == 0) {
-            log.warn("点赞数数更新失败，targetId: {}", targetId);
+            log.warn("点赞数 更新失败，targetId: {}", targetId);
         }
     }
 

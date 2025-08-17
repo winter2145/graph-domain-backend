@@ -1,5 +1,4 @@
-package com.xin.graphdomainbackend.model.dto.like;
-
+package com.xin.graphdomainbackend.model.dto.share;
 
 import com.xin.graphdomainbackend.model.dto.PageRequest;
 import lombok.Data;
@@ -8,13 +7,13 @@ import lombok.EqualsAndHashCode;
 import java.io.Serializable;
 
 /**
- * 点赞评论请求
+ * 分享查询请求
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class LikeQueryRequest extends PageRequest implements Serializable {
+public class ShareQueryRequest extends PageRequest implements Serializable {
     /**
-     * 目标类型：1-图片 2-帖子 4-评论
+     * 目标类型：1-图片
      */
     private Integer targetType;
 

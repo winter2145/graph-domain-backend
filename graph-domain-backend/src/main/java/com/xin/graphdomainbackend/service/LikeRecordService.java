@@ -9,6 +9,7 @@ import com.xin.graphdomainbackend.model.entity.LikeRecord;
 import com.xin.graphdomainbackend.model.vo.LikeRecordVO;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -31,7 +32,7 @@ public interface LikeRecordService extends IService<LikeRecord> {
     /**
      * 处理点赞逻辑
      */
-    Boolean dealDoLike(Long userId, Long targetId, Integer targetType, Boolean isLiked, Long targetUserId);
+    Boolean dealLikeOrDislike(Long userId, Long targetId, Integer targetType, Integer isLiked, Long targetUserId);
 
     /**
      * 获取用户的点赞历史（分页）
@@ -42,4 +43,19 @@ public interface LikeRecordService extends IService<LikeRecord> {
      * 获取用户未读点赞数
      */
     long getUnreadLikesCount(Long userId);
+
+    /**
+     * 清除所有未读的点赞
+     */
+    void clearAllUnreadLikes(Long id);
+
+    /**
+     * 获取用户是否点赞
+     */
+    Boolean getIsLike(Long userId, Long targetId);
+
+    /**
+     * 根据targetIds 查找点赞记录
+     */
+    List<LikeRecord> getLikeRecordsByTargetIds(Set<Long> targetIds, Integer targetType);
 }

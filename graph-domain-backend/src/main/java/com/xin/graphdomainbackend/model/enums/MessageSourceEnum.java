@@ -3,7 +3,7 @@ package com.xin.graphdomainbackend.model.enums;
 import lombok.Getter;
 
 /**
- * 评论来源枚举
+ * 消息 来源枚举
  * 来源 本人（我发的）
  * 来源 他人（我收到的）
  */

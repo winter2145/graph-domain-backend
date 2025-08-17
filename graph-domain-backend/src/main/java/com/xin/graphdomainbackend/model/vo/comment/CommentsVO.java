@@ -1,9 +1,7 @@
 package com.xin.graphdomainbackend.model.vo.comment;
 
-import cn.hutool.json.JSONUtil;
 import com.xin.graphdomainbackend.model.dto.PageRequest;
 import com.xin.graphdomainbackend.model.entity.Comments;
-import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.vo.PictureVO;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;
@@ -50,7 +48,7 @@ public class CommentsVO extends PageRequest implements Serializable {
     /**
      * 父评论ID
      */
-    private Long parentId;
+    private Long parentCommentId;
 
     /**
      * 点赞数
@@ -61,6 +59,11 @@ public class CommentsVO extends PageRequest implements Serializable {
      * 点踩数
      */
     private Long dislikeCount;
+
+    /**
+     * 当前用户点赞状态：0-未操作，1-点赞，2-点踩
+     */
+    private Integer likeStatus;
 
     /**
      * 创建时间
@@ -77,12 +80,10 @@ public class CommentsVO extends PageRequest implements Serializable {
      */
     private PictureVO picture;
 
-
     /**
      * 子评论列表
      */
     private List<CommentsVO> children;
-
 
     /**
      * VO ->　实体类
@@ -94,7 +95,6 @@ public class CommentsVO extends PageRequest implements Serializable {
         }
         Comments comments = new Comments();
         BeanUtils.copyProperties(commentsVO, comments);
-
         return comments;
     }
 
@@ -108,7 +108,6 @@ public class CommentsVO extends PageRequest implements Serializable {
         }
         CommentsVO commentsVO = new CommentsVO();
         BeanUtils.copyProperties(comments, commentsVO);
-
         return commentsVO;
     }
 }

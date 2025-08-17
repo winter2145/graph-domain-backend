@@ -10,52 +10,47 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * 
- * @TableName like_record
+ * 分享记录表
+ * @TableName share_record
  */
-@TableName(value ="like_record")
+@TableName(value ="share_record")
 @Data
-public class LikeRecord implements Serializable {
+public class ShareRecord implements Serializable {
     /**
-     * 主键 ID
+     * 分享ID
      */
     @TableId(type = IdType.AUTO)
     private Long id;
 
     /**
-     * 用户 ID
+     * 用户ID
      */
     private Long userId;
 
     /**
-     * 被点赞内容的ID
+     * 被分享内容的ID
      */
     private Long targetId;
 
     /**
-     * 内容类型：1-图片 2-帖子 3-空间
+     * 内容类型：1-图片
      */
     private Integer targetType;
 
     /**
-     * 被点赞内容所属用户ID
+     * 被分享内容所属用户ID
      */
     private Long targetUserId;
 
     /**
-     * 点赞状态：0-未操作，1-点赞，2-点踩
+     * 是否分享
      */
-    private Integer likeStatus;
+    private Boolean isShared;
 
     /**
-     * 第一次点赞时间
+     * 分享时间
      */
-    private Date firstLikeTime;
-
-    /**
-     * 最近一次点赞时间
-     */
-    private Date lastLikeTime;
+    private Date shareTime;
 
     /**
      * 是否已读（0-未读，1-已读）

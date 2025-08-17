@@ -27,6 +27,18 @@ public interface CommentsMapper extends BaseMapper<Comments> {
             " SELECT commentId FROM comment_tree")
     List<Long> selectAllChildCommentIds(@Param("parentId") Long parentId);
 
+    @Select({
+            "WITH RECURSIVE comment_tree AS (",
+            "  SELECT * FROM comments WHERE parentCommentId = #{parentId} AND isDelete = 0",
+            "  UNION ALL",
+            "  SELECT c.* FROM comments c",
+            "  JOIN comment_tree ct ON c.parentCommentId = ct.commentId",
+            "  WHERE c.isDelete = 0",
+            ")",
+            "SELECT * FROM comment_tree"
+    })
+    List<Comments> selectAllChildCommentsWithDetails(@Param("parentId") Long parentId);
+
     @Update("<script>" +
             "UPDATE comments SET isDelete = 1 WHERE commentId IN " +
             "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +
