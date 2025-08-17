@@ -1,5 +1,6 @@
 package com.xin.graphdomainbackend.health;
 
+import com.xin.graphdomainbackend.annotation.LoginCheck;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.service.UserService;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -23,6 +24,7 @@ public class HeartbeatController {
     private StringRedisTemplate stringRedisTemplate;
 
     @PostMapping("/heartbeat")
+    @LoginCheck
     public void heartbeat(HttpServletRequest request) {
         // 获取当前用户
         User currentUser = userService.getLoginUser(request);

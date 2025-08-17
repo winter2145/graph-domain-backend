@@ -177,6 +177,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             user.setUserPassword(encryptPassword);
             user.setUserName(userAccount); // 使用账号作为默认用户名
             user.setUserRole(UserRoleEnum.USER.getValue());
+
             boolean saveResult = this.save(user);
 
             if (!saveResult) {
@@ -343,7 +344,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (request == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户未登录");
         }
-        request.removeAttribute(UserConstant.USER_LOGIN_STATE);
+
+        // 1. 清理 Session
+        request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
+        request.getSession().invalidate(); // 可选：彻底销毁 Session
+
+        // 2. 清理 Sa-Token 登录态
+        Object loginId = StpKit.SPACE.getLoginIdDefaultNull();
+        if (loginId != null) {
+            Long userId = Long.parseLong(loginId.toString()); // 安全转换
+            stringRedisTemplate.delete("online:" + userId);
+        }
         return true;
     }
 

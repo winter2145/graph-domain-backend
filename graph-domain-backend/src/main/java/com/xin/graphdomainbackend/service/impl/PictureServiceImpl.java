@@ -16,6 +16,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.xin.graphdomainbackend.config.CosClientConfig;
 import com.xin.graphdomainbackend.constant.CrawlerConstant;
 import com.xin.graphdomainbackend.constant.RedisConstant;
+import com.xin.graphdomainbackend.constant.TargetTypeConstant;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.esdao.EsPictureDao;
 import com.xin.graphdomainbackend.exception.BusinessException;
@@ -27,6 +28,7 @@ import com.xin.graphdomainbackend.manager.upload.UrlPictureUpload;
 import com.xin.graphdomainbackend.mapper.PictureMapper;
 import com.xin.graphdomainbackend.model.dto.file.UploadPictureResult;
 import com.xin.graphdomainbackend.model.dto.picture.*;
+import com.xin.graphdomainbackend.model.entity.LikeRecord;
 import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
@@ -44,6 +46,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.BeansException;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -65,6 +68,7 @@ import java.time.Duration;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -111,6 +115,14 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private SpaceUserService spaceUserService;
+
+    @Resource
+    @Lazy
+    private LikeRecordService likeRecordService;
+
+    @Resource
+    @Lazy
+    private ShareRecordService shareRecordService;
 
     @Override
     public void validPicture(Picture picture) {
@@ -411,6 +423,25 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         // 对象转封装类
         PictureVO pictureVO = PictureVO.objToVo(picture);
 
+        try {
+            // 获取请求上下文
+            ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            HttpServletRequest request = requestAttributes.getRequest();
+            Object attribute = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+            User currentUser = (User) attribute;
+            if(currentUser != null) { // 用户只有登录后才能查看是否点过赞
+                User loginUser = userService.getLoginUser(request);
+
+                // 查询用户是否点赞
+                Boolean isLike = likeRecordService.getIsLike(loginUser.getId(), picture.getId());
+                if (isLike) {
+                    pictureVO.setIsLiked(1);
+                }
+            }
+        } catch (Exception e) {
+            log.error("获取用户点赞状态失败", e);
+        }
+
         // 关联查询用户信息
         Long userId = picture.getUserId();
         if (userId != null && userId > 0) {
@@ -426,12 +457,68 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     public List<PictureVO> getPictureVOList(List<Picture> pictureList) {
         if (pictureList.isEmpty()) {
             return new ArrayList<>();
-        } else {
-            return pictureList
-                    .stream()
-                    .map(this::getPictureVO)
-                    .collect(Collectors.toList());
         }
+
+        //  1.收集含有点赞的图片id
+        Set<Long> containLikePictureIds = pictureList.stream()
+                .filter(picture -> picture.getLikeCount() > 0)
+                .map(Picture::getId)
+                .collect(Collectors.toSet());
+
+        // 2.根据含有点赞的图片id，去批量查找点赞记录
+        List<LikeRecord> likeRecords = likeRecordService.getLikeRecordsByTargetIds(containLikePictureIds, TargetTypeConstant.IMAGE);
+
+        // 3.获取当前登录用户ID（如果未登录则返回空集合）
+        Set<Long> likedPictureIds = new HashSet<>();
+        try {
+            ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (requestAttributes != null) {
+                HttpServletRequest request = requestAttributes.getRequest();
+                User loginUser = userService.getLoginUser(request);
+
+                // 提取当前用户点赞过的图片 ID
+                likedPictureIds = likeRecords.stream()
+                        .filter(likeRecord -> likeRecord.getUserId().equals(loginUser.getId()))
+                        .filter(likeRecord -> likeRecord.getLikeStatus() == 1)
+                        .map(LikeRecord::getTargetId)
+                        .collect(Collectors.toSet());
+            }
+        } catch (Exception e) {
+            log.error("获取用户点赞状态失败", e);
+        }
+
+        // 4.批量查询图片作者信息
+        Map<Long, User> userMap = getUserMap(pictureList);
+
+        Set<Long> finalLikedPictureIds = likedPictureIds;
+        return pictureList.stream()
+                .map(picture -> {
+                    PictureVO pictureVO = PictureVO.objToVo(picture);
+                    // 设置作者信息
+                    if (userMap.containsKey(picture.getUserId())) {
+                        User targetUser = userMap.get(picture.getUserId());
+                        UserVO userVO = userService.getUserVO(targetUser);
+                        pictureVO.setUser(userVO);
+                    }
+                    if (finalLikedPictureIds.contains(picture.getId())) {
+                        pictureVO.setIsLiked(1);
+                    }
+                    return pictureVO;
+                }).collect(Collectors.toList());
+
+    }
+
+    // 批量查询图片作者信息
+    private Map<Long, User> getUserMap(List<Picture> pictureList) {
+        Set<Long> userIds = pictureList.stream()
+                .map(Picture::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (userIds.isEmpty()) {
+            return new HashMap<>();
+        }
+        return userService.listByIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
     }
 
     @Override
@@ -839,7 +926,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     }
 
     @Override
-    @Async
+    @Async("asyncExecutor")
     public void clearPictureFile(Picture oldPicture) {
         if (oldPicture == null) {
             // 若 oldPicture 为 null，直接返回，避免空指针异常
@@ -1072,7 +1159,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
         // 查询脱敏图片信息
         List<Picture> pictureList = picturePage.getRecords();
-        List<PictureVO> pictureVOList = pictureList.stream().map(this::getPictureVO).collect(Collectors.toList());
+        List<PictureVO> pictureVOList = getPictureVOList(pictureList);
+        //List<PictureVO> pictureVOList = pictureList.stream().map(this::getPictureVO).collect(Collectors.toList());
 
         Page<PictureVO> pictureVOPage = new Page<>(picturePage.getCurrent(), picturePage.getSize(), picturePage.getTotal());
         pictureVOPage.setRecords(pictureVOList);

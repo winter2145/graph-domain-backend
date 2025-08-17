@@ -23,7 +23,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
                     "/user/register",
                     "/user/getCode",
                     "/user/get_emailcode",
-                    "/heartbeat"
+                    "/heartbeat",
+                    "/picture/list/page/vo",
+                    "/picture/tag_category"
                     // 其他不需要登录的接口
                 );
     }

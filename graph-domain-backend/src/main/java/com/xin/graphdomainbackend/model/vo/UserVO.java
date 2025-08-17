@@ -1,6 +1,10 @@
 package com.xin.graphdomainbackend.model.vo;
 
+import cn.hutool.core.bean.BeanUtil;
+import com.xin.graphdomainbackend.model.vo.comment.CommentUserVO;
+import com.xin.graphdomainbackend.model.vo.comment.CommentsVO;
 import lombok.Data;
+import org.springframework.context.annotation.Bean;
 
 import java.io.Serializable;
 import java.util.Date;

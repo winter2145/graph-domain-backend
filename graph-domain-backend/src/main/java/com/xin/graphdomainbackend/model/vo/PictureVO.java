@@ -138,11 +138,6 @@ public class PictureVO implements Serializable {
     private Integer isLiked;
 
     /**
-     * 当前用户是否分享
-     */
-    private Integer isShared;
-
-    /**
      * 创建用户信息
      */
     private UserVO user;

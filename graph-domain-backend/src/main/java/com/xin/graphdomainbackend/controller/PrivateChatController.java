@@ -1,6 +1,7 @@
 package com.xin.graphdomainbackend.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.xin.graphdomainbackend.annotation.LoginCheck;
 import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
@@ -33,6 +34,7 @@ public class PrivateChatController {
      * 创建或更新私聊
      */
     @PostMapping("/create_update")
+    @LoginCheck
     public BaseResponse<PrivateChatVO> createOrUpdatePrivateChat(@RequestParam Long targetUserId,
                                                                  @RequestParam(required = false) String lastMessage,
                                                                  HttpServletRequest request) {
@@ -56,6 +58,7 @@ public class PrivateChatController {
      * 分页获取私聊列表
      */
     @PostMapping("/list/page")
+    @LoginCheck
     public BaseResponse<Page<PrivateChatVO>> listPrivateChatByPage(@RequestBody PrivateChatQueryRequest privateChatQueryRequest,
                                                                  HttpServletRequest request) {
         if (privateChatQueryRequest == null) {
@@ -77,6 +80,7 @@ public class PrivateChatController {
      * 清空未读消息
      */
     @PostMapping("/clear_unread/{targetUserId}/{isSender}")
+    @LoginCheck
     public BaseResponse<Boolean> clearUnreadCount(@PathVariable Long targetUserId,boolean isSender,
                                                   HttpServletRequest request) {
         ThrowUtils.throwIf(targetUserId == null || targetUserId <= 0, ErrorCode.PARAMS_ERROR);
@@ -90,6 +94,7 @@ public class PrivateChatController {
      * 删除私聊
      */
     @PostMapping("/delete/{privateChatId}")
+    @LoginCheck
     public BaseResponse<Boolean> deletePrivateChat(@PathVariable Long privateChatId,
                                                    HttpServletRequest request) {
         ThrowUtils.throwIf(privateChatId == null || privateChatId <= 0, ErrorCode.PARAMS_ERROR);
@@ -102,6 +107,7 @@ public class PrivateChatController {
      * 修改私聊名称
      */
     @PostMapping("/update_name/{privateChatId}")
+    @LoginCheck
     public BaseResponse<Boolean> updateChatName(@PathVariable Long privateChatId,
                                                 @RequestParam String chatName,
                                                 HttpServletRequest request) {
@@ -117,6 +123,7 @@ public class PrivateChatController {
      * 更新聊天类型（好友/私信）
      */
     @PostMapping("/update_type/{targetUserId}")
+    @LoginCheck
     public BaseResponse<Boolean> updateChatType(@PathVariable Long targetUserId,
                                                 @RequestParam Boolean isFriend,
                                                 HttpServletRequest request) {
