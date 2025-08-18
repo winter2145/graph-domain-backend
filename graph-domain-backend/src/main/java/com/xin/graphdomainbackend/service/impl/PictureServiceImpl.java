@@ -423,7 +423,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         // 对象转封装类
         PictureVO pictureVO = PictureVO.objToVo(picture);
 
-        try {
+       /* try {
             // 获取请求上下文
             ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             HttpServletRequest request = requestAttributes.getRequest();
@@ -440,7 +440,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             }
         } catch (Exception e) {
             log.error("获取用户点赞状态失败", e);
-        }
+        }*/
 
         // 关联查询用户信息
         Long userId = picture.getUserId();

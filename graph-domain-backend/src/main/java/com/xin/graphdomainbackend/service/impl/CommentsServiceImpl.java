@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.plugins.pagination.PageDTO;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.constant.TargetTypeConstant;
+import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.mapper.CommentsMapper;
@@ -209,18 +210,23 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
         commentsVOList.forEach(vo -> attachUser(vo, userVOMap));
 
         // 6.批量查询当前用户对所有评论的点赞状态
-        User loginUser = userService.getLoginUser(request);
-        if (loginUser != null && !allCommentIds.isEmpty()) {
-            List<LikeRecord> commentLikeRecords = likeRecordService.getLikeRecordsByTargetIds(allCommentIds, TargetTypeConstant.COMMENT);
+        Object attribute = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+        User currentUser = (User) attribute;
+        if (currentUser != null) { // 只有登录的用户才能查看点赞状态
+            User loginUser = userService.getLoginUser(request);
+            if (loginUser != null && !allCommentIds.isEmpty()) {
+                List<LikeRecord> commentLikeRecords = likeRecordService.getLikeRecordsByTargetIds(allCommentIds, TargetTypeConstant.COMMENT);
 
-            // 提取出当前用户 点赞记录的评论id
-            Map<Long, Integer> likeStatusMap = commentLikeRecords.stream()
-                    .filter(likeRecord -> likeRecord.getUserId().equals(loginUser.getId()))
-                    .collect(Collectors.toMap(LikeRecord::getTargetId, LikeRecord::getLikeStatus));
+                // 提取出当前用户 点赞记录的评论id
+                Map<Long, Integer> likeStatusMap = commentLikeRecords.stream()
+                        .filter(likeRecord -> likeRecord.getUserId().equals(loginUser.getId()))
+                        .collect(Collectors.toMap(LikeRecord::getTargetId, LikeRecord::getLikeStatus));
 
-            // 设置所有评论的点赞状态（包括子评论）
-            setLikeStatusForAllComments(commentsVOList, likeStatusMap);
+                // 设置所有评论的点赞状态（包括子评论）
+                setLikeStatusForAllComments(commentsVOList, likeStatusMap);
+            }
         }
+
 
         // 构造分页结果
         Page<CommentsVO> resultPage = new Page<>(current, size, commentsPage.getTotal());
