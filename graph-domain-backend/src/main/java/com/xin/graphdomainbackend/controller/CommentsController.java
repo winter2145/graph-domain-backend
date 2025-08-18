@@ -43,7 +43,6 @@ public class CommentsController {
 
     // 查询评论
     @PostMapping("/query")
-    @LoginCheck
     public BaseResponse<Page<CommentsVO>> queryComment(@RequestBody CommentsQueryRequest commentsQueryRequest, HttpServletRequest request) {
         return ResultUtils.success(commentsService.queryComment(commentsQueryRequest, request));
     }
