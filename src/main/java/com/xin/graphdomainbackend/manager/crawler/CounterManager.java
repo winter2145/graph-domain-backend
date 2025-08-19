@@ -1,4 +1,4 @@
-package com.xin.graphdomainbackend.manager;
+package com.xin.graphdomainbackend.manager.crawler;
 
 import cn.hutool.core.util.StrUtil;
 import lombok.extern.slf4j.Slf4j;

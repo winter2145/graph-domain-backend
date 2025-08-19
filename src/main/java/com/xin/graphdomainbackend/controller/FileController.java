@@ -8,7 +8,7 @@ import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
-import com.xin.graphdomainbackend.manager.CosManager;
+import com.xin.graphdomainbackend.manager.cos.CosManager;
 import com.xin.graphdomainbackend.utils.ResultUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;

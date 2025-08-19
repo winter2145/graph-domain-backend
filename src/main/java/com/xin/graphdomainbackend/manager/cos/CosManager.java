@@ -1,4 +1,4 @@
-package com.xin.graphdomainbackend.manager;
+package com.xin.graphdomainbackend.manager.cos;
 
 import cn.hutool.core.io.FileUtil;
 import com.qcloud.cos.COSClient;
@@ -15,6 +15,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 腾讯云 对象存储 管理类
+ */
 @Component
 public class CosManager {
 

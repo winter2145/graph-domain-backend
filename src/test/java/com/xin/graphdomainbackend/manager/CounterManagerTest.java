@@ -1,11 +1,10 @@
 package com.xin.graphdomainbackend.manager;
 
+import com.xin.graphdomainbackend.manager.crawler.CounterManager;
 import org.junit.jupiter.api.Test;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

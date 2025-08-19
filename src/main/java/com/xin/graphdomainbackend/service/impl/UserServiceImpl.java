@@ -502,6 +502,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return result;
     }
 
+    @Override
+    public Boolean isLogin(HttpServletRequest request) {
+        // 判断是否已经登录
+        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+        User currentUser = (User) userObj;
+        if (currentUser == null || currentUser.getId() == null) {
+            return false;
+        }
+        return true;
+    }
+
 }
 
 
