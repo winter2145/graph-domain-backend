@@ -1,0 +1,139 @@
+# 删除旧索引（如果存在）
+DELETE /space
+
+# 创建 user 索引
+PUT /space
+{
+"settings": {
+"index": {
+"number_of_shards": 1,
+"number_of_replicas": 1
+},
+"analysis": {
+"analyzer": {
+"ik_smart": {
+"type": "custom",
+"tokenizer": "ik_smart",
+"filter": ["lowercase"]
+}
+}
+}
+},
+"mappings": {
+"properties": {
+"id": {
+"type": "long"
+},
+"spaceName": {
+"type": "text",
+"fields": {
+"ik": {
+"type": "text",
+"analyzer": "ik_smart"
+},
+"standard": {
+"type": "text",
+"analyzer": "standard"
+}
+}
+},
+"spaceType": {
+"type": "integer"
+},
+"spaceLevel": {
+"type": "integer"
+},
+"userId": {
+"type": "long"
+},
+"createTime": {
+"type": "date",
+"format": "strict_date_time||strict_date_optional_time||epoch_millis"
+},
+"editTime": {
+"type": "date",
+"format": "strict_date_time||strict_date_optional_time||epoch_millis"
+},
+"updateTime": {
+"type": "date",
+"format": "strict_date_time||strict_date_optional_time||epoch_millis"
+},
+"isDelete": {
+"type": "integer"
+}
+}
+}
+}
+
+{
+settings: {
+index: {
+'number_of_shards': 1,
+'number_of_replicas': 1
+},
+analysis: {
+analyzer: {
+'ik_smart': {
+type: 'custom',
+tokenizer: 'ik_smart',
+filter: [
+'lowercase'
+]
+}
+}
+}
+},
+mappings: {
+properties: {
+id: {
+type: 'long'
+},
+spaceName: {
+type: 'text',
+fields: {
+ik: {
+type: 'text',
+analyzer: 'ik_smart'
+},
+standard: {
+type: 'text',
+analyzer: 'standard'
+}
+}
+},
+spaceType: {
+type: 'integer'
+},
+spaceLevel: {
+type: 'integer'
+},
+userId: {
+type: 'long'
+},
+createTime: {
+type: 'date',
+format: 'strict_date_time||strict_date_optional_time||epoch_millis'
+},
+editTime: {
+type: 'date',
+format: 'strict_date_time||strict_date_optional_time||epoch_millis'
+},
+updateTime: {
+type: 'date',
+format: 'strict_date_time||strict_date_optional_time||epoch_millis'
+},
+isDelete: {
+type: 'integer'
+}
+}
+}
+}
+
+POST /space/_analyze
+{
+"analyzer": "ik_max_word",
+"text": "鑫的图片分享"
+}
+
+#测试索引是否创建成功
+GET /space/_mapping

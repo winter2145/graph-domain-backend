@@ -1,0 +1,90 @@
+# 删除旧索引（如果存在）
+DELETE /user
+
+# 创建 user 索引
+PUT /user
+{
+"settings": {
+"analysis": {
+"analyzer": {
+"text_analyzer": {
+"tokenizer": "ik_max_word",
+"filter": ["lowercase"]
+}
+}
+}
+},
+"mappings": {
+"properties": {
+"id": {
+"type": "long"
+},
+"userAccount": {
+"type": "text",
+"analyzer": "standard",
+"fields": {
+"keyword": {
+"type": "keyword",
+"ignore_above": 256
+}
+}
+},
+"userName": {
+"type": "text",
+"fields": {
+"ik": {
+"type": "text",
+"analyzer": "ik_smart"
+},
+"keyword": {
+"type": "keyword",
+"ignore_above": 256
+}
+}
+},
+"userAvatar": {
+"type": "keyword"
+},
+"userProfile": {
+"type": "text",
+"fields": {
+"ik": {
+"type": "text",
+"analyzer": "ik_smart"
+},
+"keyword": {
+"type": "keyword",
+"ignore_above": 256
+}
+}
+},
+"userRole": {
+"type": "keyword"
+},
+"editTime": {
+"type": "date",
+"format": "strict_date_time||strict_date_optional_time||epoch_millis"
+},
+"createTime": {
+"type": "date",
+"format": "strict_date_time||strict_date_optional_time||epoch_millis"
+},
+"updateTime": {
+"type": "date",
+"format": "strict_date_time||strict_date_optional_time||epoch_millis"
+},
+"isDelete": {
+"type": "integer"
+}
+}
+}
+}
+
+POST /user/_analyze
+{
+"analyzer": "ik_max_word",
+"text": "鑫的图片分享"
+}
+
+#测试索引是否创建成功
+GET /user/_mapping
