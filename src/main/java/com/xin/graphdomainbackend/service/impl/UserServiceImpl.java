@@ -94,6 +94,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         try {
             emailSendUtil.sendEmail(email, code);
         } catch (Exception e) {
+            log.error("错误信息:{}",e.getMessage());
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "邮件发送失败");
         }
 
@@ -234,6 +235,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (!user.getUserPassword().equals(encryptPassword)) {
             log.info("密码错误，用户: {}", accountOrEmail);
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
+        }
+        if (UserConstant.BAN_ROLE.equals(user.getUserRole())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "此账号处于封禁中");
         }
 
         // 4.记录用户状态

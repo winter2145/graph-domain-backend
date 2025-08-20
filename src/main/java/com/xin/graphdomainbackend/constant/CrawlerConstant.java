@@ -14,4 +14,6 @@ public class CrawlerConstant {
     public static final String USER_KEY = "user:access";
 
     public static final String IP_KEY = "ip:access";
+
+    public static final String BAN_IP_KEY = "ban:ip";
 }

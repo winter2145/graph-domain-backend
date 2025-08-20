@@ -16,6 +16,7 @@ import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.manager.auth.SpaceUserAuthManager;
 import com.xin.graphdomainbackend.manager.auth.StpKit;
 import com.xin.graphdomainbackend.manager.auth.model.SpaceUserPermissionConstant;
+import com.xin.graphdomainbackend.manager.crawler.CrawlerManager;
 import com.xin.graphdomainbackend.mapper.SpaceMapper;
 import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.picture.*;
@@ -63,6 +64,9 @@ public class PictureController {
 
     @Resource
     private SpaceMapper spaceMapper;
+
+    @Resource
+    private CrawlerManager crawlerManager;
 
 
     /**
@@ -253,6 +257,9 @@ public class PictureController {
                 pictureQueryRequest.setReviewStatus(PictureReviewStatusEnum.PASS.getValue());
             }
         }
+
+        // 反爬检测
+        crawlerManager.detectNormalRequest(request);
 
         Page<PictureVO> pictureVOByPage = pictureService.getPictureVOByPage(pictureQueryRequest);
         return ResultUtils.success(pictureVOByPage);

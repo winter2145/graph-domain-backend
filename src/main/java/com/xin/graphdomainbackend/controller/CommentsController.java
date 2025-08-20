@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xin.graphdomainbackend.annotation.LoginCheck;
 import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.exception.ErrorCode;
+import com.xin.graphdomainbackend.manager.crawler.CrawlerManager;
 import com.xin.graphdomainbackend.model.dto.comments.CommentsAddRequest;
 import com.xin.graphdomainbackend.model.dto.comments.CommentsDeleteRequest;
 import com.xin.graphdomainbackend.model.dto.comments.CommentsLikeRequest;
@@ -26,10 +27,16 @@ public class CommentsController {
     @Resource
     private CommentsService commentsService;
 
+    @Resource
+    private CrawlerManager crawlerManager;
+
     // 添加评论
     @PostMapping("/add")
     @LoginCheck
     public BaseResponse<Boolean> addComment(@RequestBody CommentsAddRequest commentsAddRequest, HttpServletRequest request) {
+
+        // 检测高频操作
+        crawlerManager.detectFrequentRequest(request);
         Boolean result = commentsService.addComment(commentsAddRequest, request);
         return ResultUtils.success(result);
     }
@@ -44,6 +51,11 @@ public class CommentsController {
     // 查询评论
     @PostMapping("/query")
     public BaseResponse<Page<CommentsVO>> queryComment(@RequestBody CommentsQueryRequest commentsQueryRequest, HttpServletRequest request) {
+        // 检测高频操作
+        crawlerManager.detectFrequentRequest(request);
+        long size = commentsQueryRequest.getPageSize();
+        ThrowUtils.throwIf(size > 50, ErrorCode.PARAMS_ERROR);
+
         return ResultUtils.success(commentsService.queryComment(commentsQueryRequest, request));
     }
 
@@ -84,6 +96,9 @@ public class CommentsController {
     @LoginCheck
     public BaseResponse<List<CommentsVO>> getUnreadComments(HttpServletRequest request) {
 
+        // 检测普通请求
+        crawlerManager.detectNormalRequest(request);
+
         List<CommentsVO> unreadComments = commentsService.getAndClearUnreadComments(request);
         return ResultUtils.success(unreadComments);
     }
@@ -96,6 +111,8 @@ public class CommentsController {
     @GetMapping("/unread/count")
     @LoginCheck
     public BaseResponse<Long> getUnreadCommentsCount(HttpServletRequest request) {
+        // 检测普通请求
+        crawlerManager.detectNormalRequest(request);
 
         return ResultUtils.success(commentsService.getUnreadCommentsCount(request));
     }
@@ -109,6 +126,9 @@ public class CommentsController {
     @PostMapping("/like")
     @LoginCheck
     public BaseResponse<Boolean> likeComment(@RequestBody CommentsLikeRequest commentslikeRequest, HttpServletRequest request) {
+        // 检测高频操作
+        crawlerManager.detectFrequentRequest(request);
+
         return ResultUtils.success(commentsService.likeComment(commentslikeRequest, request));
     }
 

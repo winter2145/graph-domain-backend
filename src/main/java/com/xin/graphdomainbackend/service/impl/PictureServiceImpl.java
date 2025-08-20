@@ -118,10 +118,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     @Lazy
     private LikeRecordService likeRecordService;
 
-    @Resource
-    @Lazy
-    private ShareRecordService shareRecordService;
-
     @Override
     public void validPicture(Picture picture) {
         ThrowUtils.throwIf(picture == null, ErrorCode.PARAMS_ERROR);

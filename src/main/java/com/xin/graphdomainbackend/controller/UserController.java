@@ -8,6 +8,7 @@ import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
+import com.xin.graphdomainbackend.manager.crawler.CrawlerManager;
 import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.user.*;
 import com.xin.graphdomainbackend.model.entity.User;
@@ -35,6 +36,9 @@ public class UserController {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+    @Resource
+    private CrawlerManager crawlerManager;
+
     /**
      * 获取验证码
      */
@@ -53,6 +57,9 @@ public class UserController {
         }
         String email = emailCodeRequest.getEmail();
         String type = emailCodeRequest.getType();
+        // 检测高频操作
+        crawlerManager.detectFrequentRequest(request);
+
         boolean result = userService.sendEmailCode(email, type, request);
 
         return ResultUtils.success(result);

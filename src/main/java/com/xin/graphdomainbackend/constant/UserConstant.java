@@ -5,9 +5,6 @@ package com.xin.graphdomainbackend.constant;
  */
 public class UserConstant {
 
-    // 新建用户名
-    public static final String DEFAULT_NAME = "小凶鼠";
-
     // 新建用户默认密码
     public static final String DEFAULT_PASSWORD = "12345678";
 
