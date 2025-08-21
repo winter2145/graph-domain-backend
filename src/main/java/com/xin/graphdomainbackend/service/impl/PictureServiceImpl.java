@@ -10,6 +10,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.xin.graphdomainbackend.config.CosClientConfig;
@@ -62,7 +65,8 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.awt.*;
 import java.io.IOException;
-import java.time.Duration;
+import java.sql.Timestamp;
+import java.time.*;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -117,6 +121,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     @Resource
     @Lazy
     private LikeRecordService likeRecordService;
+
+    @Resource
+    private ObjectMapper objectMapper;
 
     @Override
     public void validPicture(Picture picture) {
@@ -416,25 +423,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
         // 对象转封装类
         PictureVO pictureVO = PictureVO.objToVo(picture);
-
-       /* try {
-            // 获取请求上下文
-            ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            HttpServletRequest request = requestAttributes.getRequest();
-            Object attribute = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
-            User currentUser = (User) attribute;
-            if(currentUser != null) { // 用户只有登录后才能查看是否点过赞
-                User loginUser = userService.getLoginUser(request);
-
-                // 查询用户是否点赞
-                Boolean isLike = likeRecordService.getIsLike(loginUser.getId(), picture.getId());
-                if (isLike) {
-                    pictureVO.setIsLiked(1);
-                }
-            }
-        } catch (Exception e) {
-            log.error("获取用户点赞状态失败", e);
-        }*/
 
         // 关联查询用户信息
         Long userId = picture.getUserId();
@@ -1160,6 +1148,94 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         pictureVOPage.setRecords(pictureVOList);
 
         return pictureVOPage;
+    }
+
+    @Override
+    public List<PictureVO> getTop10PictureWithCache(Long id) {
+
+        // 构建缓存Key
+        String cacheKey = RedisConstant.TOP_10_PIC_REDIS_KEY_PREFIX + id;
+
+        try {
+            // 1.先查本地缓存
+            String cacheValue = LOCAL_CACHE.getIfPresent(cacheKey);
+            if (cacheValue != null) {
+                return objectMapper.readValue(cacheValue, new TypeReference<List<PictureVO>>() {
+                });
+            }
+
+            // 2.本地缓存未命中，查Redis
+            cacheValue = stringRedisTemplate.opsForValue().get(cacheKey);
+            if (cacheValue != null) {
+                List<PictureVO> cachedPage = objectMapper.readValue(cacheValue, new TypeReference<List<PictureVO>>() {
+                });
+
+                // 更新本地缓存
+                LOCAL_CACHE.put(cacheKey, cacheValue);
+                return cachedPage;
+            }
+        } catch (JsonProcessingException e) {
+            log.error("获取缓存失败：", e);
+        }
+
+        // 3. Redis未命中，查数据库,将picture -> pictureVO
+        List<Picture> pictureList = this.getTop10PictureList(id);
+        List<PictureVO> pictureVOList = this.getPictureVOList(pictureList);
+
+        // 更新本地缓存、redis
+        LOCAL_CACHE.put(cacheKey, JSONUtil.toJsonStr(pictureVOList));
+
+        int cacheExpireTime = RedisConstant.TOP_100_PIC_REDIS_KEY_EXPIRE_TIME + RandomUtil.randomInt(0, 300); // 设置过期时间1天，加随机5分钟
+        stringRedisTemplate.opsForValue().set(cacheKey, JSONUtil.toJsonStr(pictureVOList),
+                cacheExpireTime, TimeUnit.SECONDS);
+
+        return pictureVOList;
+    }
+
+    /**
+     * 获取 top10 图片列表
+     */
+    private List<Picture> getTop10PictureList(Long id) {
+        LambdaQueryWrapper<Picture> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(Picture::getReviewStatus, 1)
+                .isNull(Picture::getSpaceId);
+
+        // 根据不同时间查询
+        LocalDate today = LocalDate.now();
+        LocalDateTime startDateTime = null;
+        LocalDateTime endDateTime = null;
+
+        switch (id.intValue()) {
+            case 1: // 周榜（上周一 00:00 ~ 上周日 23:59:59）
+                LocalDate lastWeekStart = today.minusWeeks(1).with(DayOfWeek.MONDAY);
+                LocalDate lastWeekEnd = lastWeekStart.plusDays(6);
+                startDateTime = lastWeekStart.atStartOfDay();
+                endDateTime = lastWeekEnd.atTime(LocalTime.MAX);
+                break;
+            case 2: // 月榜（上月 1号 00:00 ~ 上月最后一天 23:59:59）
+                LocalDate lastMonthStart = today.minusMonths(1).withDayOfMonth(1);
+                LocalDate lastMonthEnd = lastMonthStart.withDayOfMonth(lastMonthStart.lengthOfMonth());
+                startDateTime = lastMonthStart.atStartOfDay();
+                endDateTime = lastMonthEnd.atTime(LocalTime.MAX);
+                break;
+            case 3: // 总榜
+                break;
+            default:
+                throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        // 时间范围条件
+        if (startDateTime != null && endDateTime != null) {
+            lambdaQueryWrapper.between(Picture::getUpdateTime,
+                    Timestamp.valueOf(startDateTime),
+                    Timestamp.valueOf(endDateTime));
+        }
+        // 排序规则（权重公式）
+        lambdaQueryWrapper.last(
+                "ORDER BY (likeCount * 0.4 + commentCount * 0.3 + viewCount * 0.2 + shareCount * 0.1) DESC LIMIT 10"
+        );
+
+        return this.list(lambdaQueryWrapper);
     }
 
     private void fillPictureWithNameRule(List<Picture> pictureList, String nameRule) {

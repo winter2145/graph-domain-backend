@@ -40,6 +40,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.awt.image.BandedSampleModel;
 import java.util.List;
 
 @RestController
@@ -394,5 +395,13 @@ public class PictureController {
     @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_VIEW)
     public BaseResponse<Page<PictureVO>> getFollowPicture(@RequestBody PictureQueryRequest pictureQueryRequest) {
         return ResultUtils.success(pictureService.getFollowPicture(pictureQueryRequest));
+    }
+
+    /**
+     * 获取前10热门图片
+     */
+    @GetMapping("/top10/{id}")
+    public BaseResponse<List<PictureVO>> getTop10PictureVO(@PathVariable Long id) {
+        return ResultUtils.success(pictureService.getTop10PictureWithCache(id));
     }
 }

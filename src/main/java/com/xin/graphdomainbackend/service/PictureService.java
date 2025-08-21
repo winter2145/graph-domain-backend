@@ -76,7 +76,7 @@ public interface PictureService extends IService<Picture> {
     /**
      * 清理图片文件
      *
-     * @param oldPicture
+     * @param oldPicture 查询到的图片对象
      */
     void clearPictureFile(Picture oldPicture);
 
@@ -177,4 +177,10 @@ public interface PictureService extends IService<Picture> {
      */
     Page<PictureVO> getFollowPicture(PictureQueryRequest pictureQueryRequest);
 
+    /**
+     * 获取Top10的图片列表（带缓存）
+     * @param id 榜单类型
+     *           1 - 周榜， 2 - 月榜， 3 - 总榜
+     */
+    List<PictureVO> getTop10PictureWithCache(Long id);
 }
