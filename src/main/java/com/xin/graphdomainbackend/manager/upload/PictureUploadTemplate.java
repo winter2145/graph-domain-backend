@@ -37,7 +37,7 @@ public abstract class PictureUploadTemplate {
      *
      * @param inputSource    文件
      * @param uploadPathPrefix 上传路径前缀
-     * @return
+     * @return 上传图片的结果
      */
     public UploadPictureResult uploadPictureResult(Object inputSource, String uploadPathPrefix) {
         // 1.校验图片
@@ -153,7 +153,7 @@ public abstract class PictureUploadTemplate {
     /**
      * 清理临时文件
      *
-     * @param file
+     * @param file 文件对象
      */
     private void deleteTempFile(File file) {
         if (file == null) {
