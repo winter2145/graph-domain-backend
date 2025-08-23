@@ -50,6 +50,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -303,8 +304,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             return picture;
         });
 
-
-
         return PictureVO.objToVo(picture);
     }
 
@@ -424,6 +423,13 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         // 对象转封装类
         PictureVO pictureVO = PictureVO.objToVo(picture);
 
+        // 只加 redis 计数，不写库
+        incrementViewCount(picture.getId());
+
+        // 浏览量 = 数据库值 + redis 增量
+        long viewCount = getViewCount(picture.getId());
+        pictureVO.setViewCount(viewCount);
+
         // 关联查询用户信息
         Long userId = picture.getUserId();
         if (userId != null && userId > 0) {
@@ -433,6 +439,86 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
 
         return pictureVO;
+    }
+
+    /**
+     * 根据图片id，增加阅览量
+     * @param pictureId 图片id
+     */
+    private void incrementViewCount(Long pictureId) {
+        // 构建redis缓存key
+        String viewCountKey = String.format("picture:viewCount:%d", pictureId);
+        // 利用redis原子性，increment（计数）
+        Long count = stringRedisTemplate.opsForValue().increment(viewCountKey);
+
+        // 第一次写入时设置过期时间 1 h
+        if (count != null && count == 1L) {
+            stringRedisTemplate.expire(viewCountKey, 1, TimeUnit.HOURS);
+        }
+    }
+
+    // 阅览量 =  数据库值 + redis 增量
+    private long getViewCount(Long pictureId) {
+        Picture dbPicture = this.getById(pictureId);
+        // 获取数据库中的 阅览数量
+        long dbCount = (dbPicture != null && dbPicture.getViewCount() != null)
+                ? dbPicture.getViewCount() : 0;
+        // 获取redis 增量值
+        String viewCountKey = String.format("picture:viewCount:%d", pictureId);
+        String cacheValue = stringRedisTemplate.opsForValue().get(viewCountKey);
+        long redisCount = (cacheValue != null) ? Long.parseLong(cacheValue) : 0;
+
+        return dbCount + redisCount;
+
+    }
+
+    @Scheduled(fixedRate = 60000) // 每分钟执行一次
+    public void flushViewCountsToDb() {
+        try {
+            Set<String> keys = stringRedisTemplate.keys("picture:viewCount:*");
+            if (keys == null || keys.isEmpty()) {
+                return;
+            }
+
+            for (String key : keys) {
+                try {
+                    String val = stringRedisTemplate.opsForValue().get(key);
+                    if (val == null) continue;
+
+                    long count = Long.parseLong(val);
+                    if (count <= 0) continue;
+
+                    Long pictureId = Long.valueOf(key.split(":")[2]);
+
+                    log.debug("刷库图片 {} 浏览量: {}", pictureId, count);
+
+                    // 使用事务确保数据一致性
+                    boolean success = this.update()
+                            .setSql("viewCount = viewCount + " + count)
+                            .eq("id", pictureId)
+                            .update();
+
+                    if (success) {
+                        // 刷库成功后，减少 Redis 中的计数
+                        Long remaining = stringRedisTemplate.opsForValue().decrement(key, count);
+
+                        // 如果 Redis 中计数为 0 或负数，删除 key
+                        if (remaining != null && remaining <= 0) {
+                            stringRedisTemplate.delete(key);
+                        } else {
+                            // 刷新过期时间
+                            stringRedisTemplate.expire(key, 1, TimeUnit.HOURS);
+                        }
+
+                        log.debug("图片 {} 浏览量刷库成功，剩余 Redis 计数: {}", pictureId, remaining);
+                    }
+                } catch (Exception e) {
+                    log.error("刷库图片浏览量失败，key: {}, error: {}", key, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("刷库浏览量任务执行失败: {}", e.getMessage());
+        }
     }
 
     @Override
@@ -943,14 +1029,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
     }
 
-    /**
-     * 增加图片浏览量
-     */
-    private void incrementViewCount(Long pictureId, HttpServletRequest request) {
-        // 检查是否需要增加阅览量
-
-    }
-
     @Override
     public void checkPictureAuth(User loginUser, Picture picture) {
 
@@ -1232,7 +1310,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
         // 排序规则（权重公式）
         lambdaQueryWrapper.last(
-                "ORDER BY (likeCount * 0.4 + commentCount * 0.3 + viewCount * 0.2 + shareCount * 0.1) DESC LIMIT 10"
+                "ORDER BY (likeCount * 0.4 + commentCount * 0.2 + viewCount * 0.1 + shareCount * 0.3) DESC LIMIT 10"
         );
 
         return this.list(lambdaQueryWrapper);

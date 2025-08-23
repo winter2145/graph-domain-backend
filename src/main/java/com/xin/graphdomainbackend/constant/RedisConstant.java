@@ -40,12 +40,6 @@ public interface RedisConstant {
     String PRIVATE_CHAT_HISTORY_PREFIX = "chat:private:";
 
     /**
-     * 聊天记录缓存过期时间（30分钟）
-     */
-    long CHAT_HISTORY_EXPIRE_TIME = 30 * 60;
-
-
-    /**
      * 获取用户签到记录的 Redis Key
      * @param year 年份
      * @param userId 用户 id

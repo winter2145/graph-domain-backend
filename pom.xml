@@ -75,7 +75,7 @@
             <artifactId>redisson</artifactId>
             <version>3.21.0</version>
         </dependency>
-        <!-- Mail -->
+        <!-- Mail （前期使用）-->
         <dependency>
             <groupId>com.sun.mail</groupId>
             <artifactId>javax.mail</artifactId>
