@@ -4,14 +4,17 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xin.graphdomainbackend.annotation.AuthCheck;
+import com.xin.graphdomainbackend.annotation.LoginCheck;
 import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
+import com.xin.graphdomainbackend.manager.crawler.CrawlerManager;
 import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.user.*;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.vo.LoginUserVO;
+import com.xin.graphdomainbackend.model.vo.PictureVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ResultUtils;
@@ -23,6 +26,8 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.concurrent.TimeUnit;
 
 @RestController
@@ -34,6 +39,9 @@ public class UserController {
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private CrawlerManager crawlerManager;
 
     /**
      * 获取验证码
@@ -53,6 +61,9 @@ public class UserController {
         }
         String email = emailCodeRequest.getEmail();
         String type = emailCodeRequest.getType();
+        // 检测高频操作
+        crawlerManager.detectFrequentRequest(request);
+
         boolean result = userService.sendEmailCode(email, type, request);
 
         return ResultUtils.success(result);
@@ -232,4 +243,15 @@ public class UserController {
         return ResultUtils.success(userVOPage);
     }
 
+    /**
+     * 上传用户头像
+     */
+    @PostMapping("/update/avatar")
+    @LoginCheck
+    public BaseResponse<String> uploadAvatar(MultipartFile multipartFile, Long id, HttpServletRequest request) {
+        ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        String avatarURL = userService.uploadAvatar(multipartFile, id, request);
+
+        return ResultUtils.success(avatarURL);
+    }
 }

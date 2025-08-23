@@ -9,6 +9,7 @@ import com.qcloud.cos.model.ciModel.persistence.ImageInfo;
 import com.xin.graphdomainbackend.config.CosClientConfig;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
+import com.xin.graphdomainbackend.manager.cos.CosManager;
 import com.xin.graphdomainbackend.model.dto.file.UploadPictureResult;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
 import lombok.extern.slf4j.Slf4j;

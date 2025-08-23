@@ -1,8 +1,10 @@
 package com.xin.graphdomainbackend.Interceptor;
 
 import com.xin.graphdomainbackend.annotation.LoginCheck;
+import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
+import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.service.UserService;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -41,14 +43,18 @@ public class LoginCheckAspect {
         HttpServletRequest request = ((ServletRequestAttributes) requestAttributes).getRequest();
 
         // 检查用户登录状态
+        User loginUser = null;
         try {
-            userService.getLoginUser(request);
+            loginUser = userService.getLoginUser(request);
         } catch (BusinessException e) {
             // 捕获登录异常并重新抛出
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR, "请先登录");
         } catch (Exception e) {
             // 其他异常处理
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "登录状态检查失败");
+        }
+        if (UserConstant.BAN_ROLE.equals(loginUser.getUserRole())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "此账号处于封禁中");
         }
 
         // 通过校验,放行

@@ -12,27 +12,17 @@ public interface RedisConstant {
     /**
      * top100
      */
-    String TOP_100_PIC_REDIS_KEY_PREFIX = "top100Picture:";
+    String TOP_10_PIC_REDIS_KEY_PREFIX = "top10Picture:";
 
     /**
      * top100过期时间为1天
      */
-    long TOP_100_PIC_REDIS_KEY_EXPIRE_TIME =  24 * 60 * 60;
+    int TOP_100_PIC_REDIS_KEY_EXPIRE_TIME =  24 * 60 * 60;
 
     /**
      * 公共图库前置
      */
     String PUBLIC_PIC_REDIS_KEY_PREFIX = "tuyu:listPictureVOByPage:";
-
-    /**
-     * 帖子top100
-     */
-    String TOP_100_POST_REDIS_KEY_PREFIX = "top100Post:";
-
-    /**
-     * 帖子top100过期时间为1天
-     */
-    long TOP_100_POST_REDIS_KEY_EXPIRE_TIME = 24 * 60 * 60;
 
     /**
      * 空间聊天记录缓存前缀
@@ -48,23 +38,6 @@ public interface RedisConstant {
      * 私聊记录缓存前缀
      */
     String PRIVATE_CHAT_HISTORY_PREFIX = "chat:private:";
-
-    /**
-     * 聊天记录缓存过期时间（30分钟）
-     */
-    long CHAT_HISTORY_EXPIRE_TIME = 30 * 60;
-
-    /**
-     * 帖子分页数据缓存前缀
-     */
-    String POST_PAGE_CACHE_PREFIX = "post:page:";
-
-
-    /**
-     * 帖子缓存过期时间（1小时）
-     */
-    long POST_CACHE_EXPIRE_TIME = 60 * 60;
-
 
     /**
      * 获取用户签到记录的 Redis Key

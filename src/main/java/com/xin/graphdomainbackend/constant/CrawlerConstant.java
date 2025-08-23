@@ -10,4 +10,10 @@ public class CrawlerConstant {
     public static final int BAN_COUNT = 50;
 
     public static final int EXPIRE_TIME = 120;
+
+    public static final String USER_KEY = "user:access";
+
+    public static final String IP_KEY = "ip:access";
+
+    public static final String BAN_IP_KEY = "ban:ip";
 }

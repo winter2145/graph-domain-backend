@@ -14,22 +14,28 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.config.MailSendConfig;
 import com.xin.graphdomainbackend.constant.EncryptConstant;
 import com.xin.graphdomainbackend.constant.UserConstant;
+import com.xin.graphdomainbackend.esdao.EsUserDao;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.manager.auth.StpKit;
+import com.xin.graphdomainbackend.manager.upload.FilePictureUpload;
 import com.xin.graphdomainbackend.mapper.UserMapper;
+import com.xin.graphdomainbackend.model.dto.file.UploadPictureResult;
 import com.xin.graphdomainbackend.model.dto.user.UserQueryRequest;
 import com.xin.graphdomainbackend.model.dto.user.UserUpdateRequest;
 import com.xin.graphdomainbackend.model.entity.User;
+import com.xin.graphdomainbackend.model.entity.es.EsUser;
 import com.xin.graphdomainbackend.model.enums.UserRoleEnum;
 import com.xin.graphdomainbackend.model.vo.LoginUserVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.service.UserService;
+import com.xin.graphdomainbackend.utils.ThrowUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -58,6 +64,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Resource
     private MailSendConfig emailSendUtil;
+
+    @Resource
+    private FilePictureUpload filePictureUpload;
+
+    @Resource
+    private EsUserDao esUserDao;
 
     /**
      * 获取加密后的密码
@@ -94,6 +106,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         try {
             emailSendUtil.sendEmail(email, code);
         } catch (Exception e) {
+            log.error("错误信息:{}",e.getMessage());
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "邮件发送失败");
         }
 
@@ -235,6 +248,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             log.info("密码错误，用户: {}", accountOrEmail);
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
         }
+        if (UserConstant.BAN_ROLE.equals(user.getUserRole())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "此账号处于封禁中");
+        }
 
         // 4.记录用户状态
         request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, user);
@@ -352,7 +368,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // 2. 清理 Sa-Token 登录态
         Object loginId = StpKit.SPACE.getLoginIdDefaultNull();
         if (loginId != null) {
-            Long userId = Long.parseLong(loginId.toString()); // 安全转换
+            long userId = Long.parseLong(loginId.toString()); // 安全转换
             stringRedisTemplate.delete("online:" + userId);
         }
         return true;
@@ -500,6 +516,52 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         result.put("base64Captcha", base64Captcha);
         result.put("encryptedCaptcha", encryptedCaptcha);
         return result;
+    }
+
+    @Override
+    public Boolean isLogin(HttpServletRequest request) {
+        // 判断是否已经登录
+        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+        User currentUser = (User) userObj;
+        return currentUser != null && currentUser.getId() != null;
+    }
+
+    @Override
+    public String uploadAvatar(MultipartFile multipartFile, Long id, HttpServletRequest request) {
+        // 判断用户是否存在
+        User user = this.getById(id);
+        ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+
+        //判断文件是否存在
+        ThrowUtils.throwIf(multipartFile == null, ErrorCode.NOT_FOUND_ERROR, "头像文件为空");
+
+        // 按照用户id划分目录
+        String uploadPathPrefix = String.format("avatar/%s", user.getId());
+        // 上传用户头像图片
+        UploadPictureResult uploadPictureResult = filePictureUpload.uploadPictureResult(multipartFile, uploadPathPrefix);
+
+        String thumbnailUrl = uploadPictureResult.getThumbnailUrl();
+        String originUrl = uploadPictureResult.getUrl();
+        String webpUrl = uploadPictureResult.getWebpUrl();
+        if(thumbnailUrl != null) {
+            user.setUserAvatar(thumbnailUrl);
+        } else if (webpUrl != null) {
+            user.setUserAvatar(webpUrl);
+        } else {
+            user.setUserAvatar(originUrl);
+        }
+
+        // 更新用户头像
+        boolean result = this.updateById(user);
+
+        if (result) {
+            // 更新ES
+            EsUser esUser = new EsUser();
+            BeanUtil.copyProperties(user, esUser);
+            esUserDao.save(esUser);
+        }
+
+        return user.getUserAvatar();
     }
 
 }

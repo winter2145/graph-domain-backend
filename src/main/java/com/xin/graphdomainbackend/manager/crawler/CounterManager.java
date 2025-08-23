@@ -1,4 +1,4 @@
-package com.xin.graphdomainbackend.manager;
+package com.xin.graphdomainbackend.manager.crawler;
 
 import cn.hutool.core.util.StrUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +43,7 @@ public class CounterManager {
      * @param unit     时间单位（支持秒、分、小时）
      * @return 当前时间段内的累计计数值
      */
-    private long incrAndGetCounter(String key, int interval, TimeUnit unit) {
+    public long incrAndGetCounter(String key, int interval, TimeUnit unit) {
         return incrAndGetCounter(key, interval, unit, toSeconds(interval, unit));
     }
 
@@ -57,7 +57,7 @@ public class CounterManager {
      * @param expireSeconds   Redis Key 的过期时间（秒）
      * @return 当前时间窗口内的计数值
      */
-    private long incrAndGetCounter(String key, int timeInterval, TimeUnit timeUnit, long expireSeconds) {
+    public long incrAndGetCounter(String key, int timeInterval, TimeUnit timeUnit, long expireSeconds) {
         if (StrUtil.hasBlank(key)) {
             return 0;
         }

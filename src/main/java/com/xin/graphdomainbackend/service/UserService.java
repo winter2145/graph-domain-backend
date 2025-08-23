@@ -7,6 +7,7 @@ import com.xin.graphdomainbackend.model.dto.user.UserUpdateRequest;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.vo.LoginUserVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -127,4 +128,18 @@ public interface UserService extends IService<User> {
      * @return 包含 base64 编码的验证码图片和加密后的答案 key 的 Map。
      */
     Map<String, String> getCaptcha();
+
+    /**
+     * 判断用户时候登录
+     * @param request Http请求
+     */
+    Boolean isLogin(HttpServletRequest request);
+
+    /**
+     * 上传用户头像
+     * @param multipartFile 头像文件
+     * @param id 用户id
+     * @param request http请求
+     */
+    String uploadAvatar(MultipartFile multipartFile, Long id, HttpServletRequest request);
 }

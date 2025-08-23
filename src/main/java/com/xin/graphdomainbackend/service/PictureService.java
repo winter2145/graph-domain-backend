@@ -7,7 +7,6 @@ import com.xin.graphdomainbackend.model.dto.picture.*;
 import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.vo.PictureVO;
-import com.xin.graphdomainbackend.model.vo.UserVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
@@ -26,18 +25,6 @@ public interface PictureService extends IService<Picture> {
      * @param picture         图片实体
      */
     void validPicture(Picture picture);
-
-/**
-     * 上传图片
-     *
-     * @param multipartFile         上传的图片文件
-     * @param pictureUploadRequest  图片上传请求参数
-     * @param loginUser             当前登录用户
-     * @return                      图片视图对象
-     */    /*
-
-    PictureVO uploadPicture(MultipartFile multipartFile, PictureUploadRequest pictureUploadRequest, User loginUser);
-    */
 
     /**
      * 上传图片
@@ -76,7 +63,7 @@ public interface PictureService extends IService<Picture> {
     /**
      * 清理图片文件
      *
-     * @param oldPicture
+     * @param oldPicture 查询到的图片对象
      */
     void clearPictureFile(Picture oldPicture);
 
@@ -177,4 +164,10 @@ public interface PictureService extends IService<Picture> {
      */
     Page<PictureVO> getFollowPicture(PictureQueryRequest pictureQueryRequest);
 
+    /**
+     * 获取Top10的图片列表（带缓存）
+     * @param id 榜单类型
+     *           1 - 周榜， 2 - 月榜， 3 - 总榜
+     */
+    List<PictureVO> getTop10PictureWithCache(Long id);
 }

@@ -75,12 +75,19 @@
             <artifactId>redisson</artifactId>
             <version>3.21.0</version>
         </dependency>
-        <!-- Mail -->
+        <!-- Mail （前期使用）-->
         <dependency>
             <groupId>com.sun.mail</groupId>
             <artifactId>javax.mail</artifactId>
             <version>1.6.2</version>
         </dependency>
+
+        <!-- Spring Boot 邮件封装（后期优化） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- 对象存储 -->
         <dependency>
             <groupId>com.qcloud</groupId>

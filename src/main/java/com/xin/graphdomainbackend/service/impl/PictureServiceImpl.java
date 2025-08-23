@@ -5,12 +5,14 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.db.PageResult;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.xin.graphdomainbackend.config.CosClientConfig;
@@ -21,7 +23,7 @@ import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.esdao.EsPictureDao;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
-import com.xin.graphdomainbackend.manager.CosManager;
+import com.xin.graphdomainbackend.manager.cos.CosManager;
 import com.xin.graphdomainbackend.manager.upload.FilePictureUpload;
 import com.xin.graphdomainbackend.manager.upload.PictureUploadTemplate;
 import com.xin.graphdomainbackend.manager.upload.UrlPictureUpload;
@@ -34,7 +36,6 @@ import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.entity.es.EsPicture;
 import com.xin.graphdomainbackend.model.enums.PictureReviewStatusEnum;
-import com.xin.graphdomainbackend.model.enums.SpaceRoleEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceTypeEnum;
 import com.xin.graphdomainbackend.model.vo.PictureVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
@@ -49,6 +50,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -64,7 +66,8 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.awt.*;
 import java.io.IOException;
-import java.time.Duration;
+import java.sql.Timestamp;
+import java.time.*;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -121,8 +124,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     private LikeRecordService likeRecordService;
 
     @Resource
-    @Lazy
-    private ShareRecordService shareRecordService;
+    private ObjectMapper objectMapper;
 
     @Override
     public void validPicture(Picture picture) {
@@ -302,8 +304,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             return picture;
         });
 
-
-
         return PictureVO.objToVo(picture);
     }
 
@@ -423,24 +423,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         // 对象转封装类
         PictureVO pictureVO = PictureVO.objToVo(picture);
 
-       /* try {
-            // 获取请求上下文
-            ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            HttpServletRequest request = requestAttributes.getRequest();
-            Object attribute = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
-            User currentUser = (User) attribute;
-            if(currentUser != null) { // 用户只有登录后才能查看是否点过赞
-                User loginUser = userService.getLoginUser(request);
+        // 只加 redis 计数，不写库
+        incrementViewCount(picture.getId());
 
-                // 查询用户是否点赞
-                Boolean isLike = likeRecordService.getIsLike(loginUser.getId(), picture.getId());
-                if (isLike) {
-                    pictureVO.setIsLiked(1);
-                }
-            }
-        } catch (Exception e) {
-            log.error("获取用户点赞状态失败", e);
-        }*/
+        // 浏览量 = 数据库值 + redis 增量
+        long viewCount = getViewCount(picture.getId());
+        pictureVO.setViewCount(viewCount);
 
         // 关联查询用户信息
         Long userId = picture.getUserId();
@@ -451,6 +439,86 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
 
         return pictureVO;
+    }
+
+    /**
+     * 根据图片id，增加阅览量
+     * @param pictureId 图片id
+     */
+    private void incrementViewCount(Long pictureId) {
+        // 构建redis缓存key
+        String viewCountKey = String.format("picture:viewCount:%d", pictureId);
+        // 利用redis原子性，increment（计数）
+        Long count = stringRedisTemplate.opsForValue().increment(viewCountKey);
+
+        // 第一次写入时设置过期时间 1 h
+        if (count != null && count == 1L) {
+            stringRedisTemplate.expire(viewCountKey, 1, TimeUnit.HOURS);
+        }
+    }
+
+    // 阅览量 =  数据库值 + redis 增量
+    private long getViewCount(Long pictureId) {
+        Picture dbPicture = this.getById(pictureId);
+        // 获取数据库中的 阅览数量
+        long dbCount = (dbPicture != null && dbPicture.getViewCount() != null)
+                ? dbPicture.getViewCount() : 0;
+        // 获取redis 增量值
+        String viewCountKey = String.format("picture:viewCount:%d", pictureId);
+        String cacheValue = stringRedisTemplate.opsForValue().get(viewCountKey);
+        long redisCount = (cacheValue != null) ? Long.parseLong(cacheValue) : 0;
+
+        return dbCount + redisCount;
+
+    }
+
+    @Scheduled(fixedRate = 60000) // 每分钟执行一次
+    public void flushViewCountsToDb() {
+        try {
+            Set<String> keys = stringRedisTemplate.keys("picture:viewCount:*");
+            if (keys == null || keys.isEmpty()) {
+                return;
+            }
+
+            for (String key : keys) {
+                try {
+                    String val = stringRedisTemplate.opsForValue().get(key);
+                    if (val == null) continue;
+
+                    long count = Long.parseLong(val);
+                    if (count <= 0) continue;
+
+                    Long pictureId = Long.valueOf(key.split(":")[2]);
+
+                    log.debug("刷库图片 {} 浏览量: {}", pictureId, count);
+
+                    // 使用事务确保数据一致性
+                    boolean success = this.update()
+                            .setSql("viewCount = viewCount + " + count)
+                            .eq("id", pictureId)
+                            .update();
+
+                    if (success) {
+                        // 刷库成功后，减少 Redis 中的计数
+                        Long remaining = stringRedisTemplate.opsForValue().decrement(key, count);
+
+                        // 如果 Redis 中计数为 0 或负数，删除 key
+                        if (remaining != null && remaining <= 0) {
+                            stringRedisTemplate.delete(key);
+                        } else {
+                            // 刷新过期时间
+                            stringRedisTemplate.expire(key, 1, TimeUnit.HOURS);
+                        }
+
+                        log.debug("图片 {} 浏览量刷库成功，剩余 Redis 计数: {}", pictureId, remaining);
+                    }
+                } catch (Exception e) {
+                    log.error("刷库图片浏览量失败，key: {}, error: {}", key, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("刷库浏览量任务执行失败: {}", e.getMessage());
+        }
     }
 
     @Override
@@ -961,14 +1029,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
     }
 
-    /**
-     * 增加图片浏览量
-     */
-    private void incrementViewCount(Long pictureId, HttpServletRequest request) {
-        // 检查是否需要增加阅览量
-
-    }
-
     @Override
     public void checkPictureAuth(User loginUser, Picture picture) {
 
@@ -1166,6 +1226,94 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         pictureVOPage.setRecords(pictureVOList);
 
         return pictureVOPage;
+    }
+
+    @Override
+    public List<PictureVO> getTop10PictureWithCache(Long id) {
+
+        // 构建缓存Key
+        String cacheKey = RedisConstant.TOP_10_PIC_REDIS_KEY_PREFIX + id;
+
+        try {
+            // 1.先查本地缓存
+            String cacheValue = LOCAL_CACHE.getIfPresent(cacheKey);
+            if (cacheValue != null) {
+                return objectMapper.readValue(cacheValue, new TypeReference<List<PictureVO>>() {
+                });
+            }
+
+            // 2.本地缓存未命中，查Redis
+            cacheValue = stringRedisTemplate.opsForValue().get(cacheKey);
+            if (cacheValue != null) {
+                List<PictureVO> cachedPage = objectMapper.readValue(cacheValue, new TypeReference<List<PictureVO>>() {
+                });
+
+                // 更新本地缓存
+                LOCAL_CACHE.put(cacheKey, cacheValue);
+                return cachedPage;
+            }
+        } catch (JsonProcessingException e) {
+            log.error("获取缓存失败：", e);
+        }
+
+        // 3. Redis未命中，查数据库,将picture -> pictureVO
+        List<Picture> pictureList = this.getTop10PictureList(id);
+        List<PictureVO> pictureVOList = this.getPictureVOList(pictureList);
+
+        // 更新本地缓存、redis
+        LOCAL_CACHE.put(cacheKey, JSONUtil.toJsonStr(pictureVOList));
+
+        int cacheExpireTime = RedisConstant.TOP_100_PIC_REDIS_KEY_EXPIRE_TIME + RandomUtil.randomInt(0, 300); // 设置过期时间1天，加随机5分钟
+        stringRedisTemplate.opsForValue().set(cacheKey, JSONUtil.toJsonStr(pictureVOList),
+                cacheExpireTime, TimeUnit.SECONDS);
+
+        return pictureVOList;
+    }
+
+    /**
+     * 获取 top10 图片列表
+     */
+    private List<Picture> getTop10PictureList(Long id) {
+        LambdaQueryWrapper<Picture> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(Picture::getReviewStatus, 1)
+                .isNull(Picture::getSpaceId);
+
+        // 根据不同时间查询
+        LocalDate today = LocalDate.now();
+        LocalDateTime startDateTime = null;
+        LocalDateTime endDateTime = null;
+
+        switch (id.intValue()) {
+            case 1: // 周榜（上周一 00:00 ~ 上周日 23:59:59）
+                LocalDate lastWeekStart = today.minusWeeks(1).with(DayOfWeek.MONDAY);
+                LocalDate lastWeekEnd = lastWeekStart.plusDays(6);
+                startDateTime = lastWeekStart.atStartOfDay();
+                endDateTime = lastWeekEnd.atTime(LocalTime.MAX);
+                break;
+            case 2: // 月榜（上月 1号 00:00 ~ 上月最后一天 23:59:59）
+                LocalDate lastMonthStart = today.minusMonths(1).withDayOfMonth(1);
+                LocalDate lastMonthEnd = lastMonthStart.withDayOfMonth(lastMonthStart.lengthOfMonth());
+                startDateTime = lastMonthStart.atStartOfDay();
+                endDateTime = lastMonthEnd.atTime(LocalTime.MAX);
+                break;
+            case 3: // 总榜
+                break;
+            default:
+                throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        // 时间范围条件
+        if (startDateTime != null && endDateTime != null) {
+            lambdaQueryWrapper.between(Picture::getUpdateTime,
+                    Timestamp.valueOf(startDateTime),
+                    Timestamp.valueOf(endDateTime));
+        }
+        // 排序规则（权重公式）
+        lambdaQueryWrapper.last(
+                "ORDER BY (likeCount * 0.4 + commentCount * 0.2 + viewCount * 0.1 + shareCount * 0.3) DESC LIMIT 10"
+        );
+
+        return this.list(lambdaQueryWrapper);
     }
 
     private void fillPictureWithNameRule(List<Picture> pictureList, String nameRule) {
