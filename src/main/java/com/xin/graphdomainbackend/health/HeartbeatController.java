@@ -14,6 +14,7 @@ import java.time.Duration;
 /**
  * 心跳检测
  */
+@Deprecated
 @RestController
 public class HeartbeatController {
 
