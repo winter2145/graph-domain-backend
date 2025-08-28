@@ -24,20 +24,16 @@ import com.xin.graphdomainbackend.model.dto.file.UploadPictureResult;
 import com.xin.graphdomainbackend.model.dto.user.UserQueryRequest;
 import com.xin.graphdomainbackend.model.dto.user.UserUpdateRequest;
 import com.xin.graphdomainbackend.model.entity.User;
-<<<<<<< HEAD
-=======
-import com.xin.graphdomainbackend.model.entity.es.EsPicture;
->>>>>>> d79111034542245c6a908f0f63b86d5d76a3a36a
+
 import com.xin.graphdomainbackend.model.entity.es.EsUser;
 import com.xin.graphdomainbackend.model.enums.UserRoleEnum;
 import com.xin.graphdomainbackend.model.vo.LoginUserVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ConvertObjectUtils;
-<<<<<<< HEAD
+
 import com.xin.graphdomainbackend.utils.ThrowUtils;
-=======
->>>>>>> d79111034542245c6a908f0f63b86d5d76a3a36a
+
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
