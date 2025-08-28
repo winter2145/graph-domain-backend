@@ -35,8 +35,8 @@ public class EsUser implements Serializable {
     @MultiField(
             mainField = @Field(type = FieldType.Text),
             otherFields = {
-                    @InnerField(suffix = "ik", type = FieldType.Text, analyzer = "ik_smart"),
-                    @InnerField(suffix = "standard", type = FieldType.Text, analyzer = "standard")
+                    @InnerField(suffix = "mix", type = FieldType.Text, analyzer = "text_analyzer"),
+                    @InnerField(suffix = "keyword", type = FieldType.Keyword, ignoreAbove = 256)
             }
     )
     private String userName;
@@ -51,11 +51,8 @@ public class EsUser implements Serializable {
      * 用户简介：支持中英文混合搜索
      */
     @MultiField(
-            mainField = @Field(type = FieldType.Text),
-            otherFields = {
-                    @InnerField(suffix = "ik", type = FieldType.Text, analyzer = "ik_smart"),
-                    @InnerField(suffix = "standard", type = FieldType.Text, analyzer = "standard")
-            }
+            mainField = @Field(type = FieldType.Text, analyzer = "text_analyzer"),
+            otherFields = @InnerField(suffix = "keyword", type = FieldType.Keyword, ignoreAbove = 256)
     )
     private String userProfile;
 
@@ -64,13 +61,6 @@ public class EsUser implements Serializable {
      */
     @Field(type = FieldType.Keyword)
     private String userRole;
-
-    /**
-     * 编辑时间
-     */
-    @Field(type = FieldType.Date, format = DateFormat.date_time)
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-    private Date editTime;
 
     /**
      * 创建时间
@@ -91,6 +81,5 @@ public class EsUser implements Serializable {
      */
     @Field(type = FieldType.Integer)
     private Integer isDelete;
-
 
 }

@@ -24,12 +24,17 @@ import com.xin.graphdomainbackend.model.dto.file.UploadPictureResult;
 import com.xin.graphdomainbackend.model.dto.user.UserQueryRequest;
 import com.xin.graphdomainbackend.model.dto.user.UserUpdateRequest;
 import com.xin.graphdomainbackend.model.entity.User;
+import com.xin.graphdomainbackend.model.entity.es.EsPicture;
 import com.xin.graphdomainbackend.model.entity.es.EsUser;
 import com.xin.graphdomainbackend.model.enums.UserRoleEnum;
 import com.xin.graphdomainbackend.model.vo.LoginUserVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.service.UserService;
+
 import com.xin.graphdomainbackend.utils.ThrowUtils;
+
+import com.xin.graphdomainbackend.utils.ConvertObjectUtils;
+
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
@@ -199,6 +204,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
             // 删除验证码
             stringRedisTemplate.delete(verifyCodeKey);
+
+            // 数据同步到ES
+            EsUser esUser = ConvertObjectUtils.toEsUser(user);
+            esUserDao.save(esUser);
+
             return user.getId();
         } catch (BusinessException e) {
             // 保留原始业务异常信息
@@ -296,7 +306,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public boolean validateCaptcha(String userInputCaptcha, String serverIfCode) {
         if (userInputCaptcha != null && serverIfCode != null) {
-            // 使用Hutool对用户输入的验证码进行MD5加密
+            // 使用Hu tool对用户输入的验证码进行MD5加密
             String encryptedVerifyCode = DigestUtil.md5Hex(userInputCaptcha);
             if(encryptedVerifyCode.equals(serverIfCode)){
                 return true;
@@ -434,9 +444,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         BeanUtil.copyProperties(userUpdateRequest, userToUpdate);
 
         boolean result = this.updateById(userToUpdate);
+
         if (!result) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新失败");
         }
+
+        // 3. 数据库更新成功后，再同步到 ES
+        User dbUser = this.getById(userUpdateRequest.getId()); // 确保取最新数据
+        EsUser esUser = ConvertObjectUtils.toEsUser(dbUser);
+        esUserDao.save(esUser);
 
         return true;
     }
