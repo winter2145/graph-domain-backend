@@ -29,14 +29,17 @@ public class EsPicture implements Serializable {
     @Field(type = FieldType.Keyword)
     private String thumbnailUrl;
 
+    @Field(type = FieldType.Keyword)
+    private String webpUrl;
+
     /**
      * 图片名称：支持中英文混合搜索
      */
     @MultiField(
-            mainField = @Field(type = FieldType.Text),
+            mainField = @Field(type = FieldType.Text, analyzer = "standard"),
             otherFields = {
-                    @InnerField(suffix = "ik", type = FieldType.Text, analyzer = "ik_smart"),
-                    @InnerField(suffix = "standard", type = FieldType.Text, analyzer = "standard")
+                    @InnerField(suffix = "mix", type = FieldType.Text, analyzer = "text_analyzer"),
+                    @InnerField(suffix = "keyword", type = FieldType.Keyword, ignoreAbove = 256)
             }
     )
     private String name;
@@ -45,10 +48,9 @@ public class EsPicture implements Serializable {
      * 简介：支持中英文混合搜索
      */
     @MultiField(
-            mainField = @Field(type = FieldType.Text),
+            mainField = @Field(type = FieldType.Text, analyzer = "text_analyzer"),
             otherFields = {
-                    @InnerField(suffix = "ik", type = FieldType.Text, analyzer = "ik_smart"),
-                    @InnerField(suffix = "standard", type = FieldType.Text, analyzer = "standard")
+                    @InnerField(suffix = "keyword", type = FieldType.Keyword, ignoreAbove = 256)
             }
     )
     private String introduction;
