@@ -18,9 +18,6 @@ public abstract class SearchTemplate<T> {
     @Resource
     protected ElasticsearchRestTemplate elasticsearchRestTemplate;
 
-    @Resource
-    protected UserService userService;
-
     public Page<T> search(SearchRequest request) {
 
         // 校验参数
