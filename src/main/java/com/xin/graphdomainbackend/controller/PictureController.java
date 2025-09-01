@@ -361,7 +361,7 @@ public class PictureController {
     }
 
     /**
-     * 批量编辑图片
+     * 批量编辑图片（用户空间内部操作）
      */
     @PostMapping("/edit/batch")
     @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_EDIT)
@@ -376,6 +376,22 @@ public class PictureController {
         return ResultUtils.success(result);
     }
 
+    /**
+     * 管理员批量通过、拒绝
+     */
+    @PostMapping("/batchOption")
+    @LoginCheck
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> batchOperationPicture(@RequestBody PictureOperation pictureOperation) {
+        ThrowUtils.throwIf(pictureOperation == null, ErrorCode.PARAMS_ERROR);
+        pictureService.batchOperationPicture(pictureOperation);
+
+        return ResultUtils.success(true);
+    }
+
+    /**
+     * 获取当前图片的标签
+     */
     @GetMapping("/tag_category")
     public BaseResponse<PictureTagCategory> listPictureTagCategory() {
         PictureTagCategory pictureTagCategory = new PictureTagCategory();

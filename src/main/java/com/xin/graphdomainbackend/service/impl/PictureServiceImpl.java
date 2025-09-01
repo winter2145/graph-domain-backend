@@ -24,6 +24,7 @@ import com.xin.graphdomainbackend.esdao.EsPictureDao;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.manager.cos.CosManager;
+import com.xin.graphdomainbackend.manager.es.EsUpdateService;
 import com.xin.graphdomainbackend.manager.upload.FilePictureUpload;
 import com.xin.graphdomainbackend.manager.upload.PictureUploadTemplate;
 import com.xin.graphdomainbackend.manager.upload.UrlPictureUpload;
@@ -34,7 +35,7 @@ import com.xin.graphdomainbackend.model.entity.LikeRecord;
 import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
-import com.xin.graphdomainbackend.model.entity.es.EsPicture;
+import com.xin.graphdomainbackend.model.enums.PictureOperationEnum;
 import com.xin.graphdomainbackend.model.enums.PictureReviewStatusEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceTypeEnum;
 import com.xin.graphdomainbackend.model.vo.PictureVO;
@@ -45,8 +46,6 @@ import com.xin.graphdomainbackend.utils.ThrowUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.springframework.beans.BeanUtils;
-import org.springframework.beans.BeansException;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -68,8 +67,8 @@ import java.awt.*;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.*;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -126,6 +125,10 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     @Resource
     private ObjectMapper objectMapper;
 
+    @Resource
+    @Lazy
+    private EsUpdateService esUpdateService;
+
     @Override
     public void validPicture(Picture picture) {
         ThrowUtils.throwIf(picture == null, ErrorCode.PARAMS_ERROR);
@@ -155,11 +158,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         if (spaceId != null) {
             space = spaceService.getById(spaceId);
             ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR, "空间不存在");
-
-            // 必须是空间管理者才能上传图片 (已修改为 SaToken 校验)
-            // if (!space.getUserId().equals(loginUser.getId())) {
-            //     throw new BusinessException(ErrorCode.PARAMS_ERROR, "没有操作权限");
-            // }
 
             // 校验额度
             if (space.getTotalCount() >= space.getMaxCount()) {
@@ -300,9 +298,11 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                         .update();
                 ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
             }
-
             return picture;
         });
+
+        // 异步更新 ES （不影响主事务提交）
+        esUpdateService.updatePictureEs(picture.getId());
 
         return PictureVO.objToVo(picture);
     }
@@ -677,31 +677,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         ThrowUtils.throwIf(!res, ErrorCode.OPERATION_ERROR);
 
         // 同步更新 ES 数据
-        try {
-            // 先查询 ES 中是否存在该数据
-            Optional<EsPicture> esOptional = esPictureDao.findById(id);
-            EsPicture esPicture;
-            if (esOptional.isPresent()) {
-                // 如果存在，获取现有数据
-                esPicture = esOptional.get();
-                // 只更新需要修改的字段
-                esPicture.setName(picture.getName());
-                esPicture.setIntroduction(picture.getIntroduction());
-                esPicture.setCategory(picture.getCategory());
-                esPicture.setTags(picture.getTags());
-                esPicture.setEditTime(picture.getEditTime());
-            } else {
-                // 如果不存在，创建新的 ES 文档
-                esPicture = new EsPicture();
-                BeanUtil.copyProperties(picture, esPicture);
-            }
-            // 保存或更新到 ES
-            esPictureDao.save(esPicture);
-        } catch (Exception e) {
-            log.error("Failed to sync picture to ES during edit, pictureId: {}", picture.getId(), e);
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
-        }
-        return res;
+        esUpdateService.updatePictureEs(picture.getId());
+
+        return true;
     }
 
     @Override
@@ -714,8 +692,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
         Long id = pictureReviewRequest.getId();
         Integer reviewStatus = pictureReviewRequest.getReviewStatus();
-        String reviewMessage = pictureReviewRequest.getReviewMessage();
         PictureReviewStatusEnum reviewStatusEnum = PictureReviewStatusEnum.getEnumByValue(reviewStatus);
+
         if (reviewStatusEnum == null || PictureReviewStatusEnum.REVIEWING.equals(reviewStatusEnum)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "审核状态非法");
         }
@@ -739,26 +717,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             throw new BusinessException(ErrorCode.OPERATION_ERROR);
         }
 
-        // 5.同步更新ES数据
-        try {
-            Optional<EsPicture> esOptional = esPictureDao.findById(id);
-            EsPicture esPicture;
-            if (esOptional.isPresent()) {
-                esPicture = esOptional.get();
-                esPicture.setReviewerId(loginUser.getId());
-                esPicture.setReviewTime(updatePicture.getReviewTime());
-                esPicture.setReviewMessage(reviewMessage);
-            } else {
-                // 如果不存在，从 MySQL 获取完整数据并创建新的 ES 文档
-                Picture fullPicture = this.getById(id);
-                esPicture = new EsPicture();
-                BeanUtils.copyProperties(fullPicture, esPicture);
-            }
-        } catch (Exception e) {
-            log.error("Failed to sync picture review status to ES, pictureId: {}", id, e);
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
-        }
-
+        // 5.更新ES数据
+        esUpdateService.updatePictureEs(id);
 
     }
 
@@ -864,30 +824,10 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             throw new BusinessException(ErrorCode.OPERATION_ERROR);
         }
 
-        // 同步更新 ES 数据
-        try {
-            Optional<EsPicture> esPictureOptional = esPictureDao.findById(picture.getId());
-            EsPicture esPicture;
-            if (esPictureOptional.isPresent()) {
-                esPicture = esPictureOptional.get();
-                esPicture.setName(picture.getName());
-                esPicture.setIntroduction(picture.getIntroduction());
-                esPicture.setCategory(picture.getCategory());
-                esPicture.setTags(picture.getTags());
-                esPicture.setEditTime(picture.getEditTime());
-                esPicture.setReviewStatus(picture.getReviewStatus());
-                esPicture.setReviewMessage(picture.getReviewMessage());
-            } else {
-                esPicture = new EsPicture();
-                BeanUtil.copyProperties(picture, esPicture);
-            }
-            esPictureDao.save(esPicture);
-            return true;
-        } catch (Exception e) {
-            log.error("同步ES数据失败, pictureId: {}", picture.getId());
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步ES失败");
-        }
+        // 异步更新 ES （不影响主事务提交）
+        esUpdateService.updatePictureEs(picture.getId());
 
+        return true;
     }
 
     @Override
@@ -1040,18 +980,21 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         boolean isMySelf = userId.equals(loginUserId);
 
         Long spaceId = picture.getSpaceId();
+        if (spaceId == null) {// 公共图库,仅本人图片或是管理者才可操作
+            if (!isAdmin && !isMySelf) {
+                throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "当前用户，无删除他人图片的权限");
+            }
+            return; // 检查通过，直接返回
+        }
+
         Space space = spaceService.getById(spaceId);
-        boolean isSpaceMember = spaceUserService.isSpaceMember(userId, spaceId);
+        boolean isSpaceMember = spaceUserService.isSpaceMember(loginUserId, spaceId);
 
         Integer spaceType = space.getSpaceType();
         boolean isPrivate = spaceType.equals(SpaceTypeEnum.PRIVATE.getValue());
         boolean isTeam = spaceType.equals(SpaceTypeEnum.TEAM.getValue());
 
-        if (spaceId == null) {// 公共图库,仅本人图片或是管理者才可操作
-            if (!isAdmin && !isMySelf) {
-                throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "当前用户，无删除他人图片的权限");
-            }
-        } else if (!isMySelf && isPrivate) { //私有空间, 仅空间本人可以操作
+        if (!isMySelf && isPrivate) { //私有空间, 仅空间本人可以操作
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "仅本人可以操作");
         } else if (!isSpaceMember && isTeam) { //团队空间, 仅团队内的成员 可以操作
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "仅团队内的成员可以操作");
@@ -1140,50 +1083,21 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             }
         });
 
+
         // 5.批量重命名
         String nameRule = pictureEditByBatchRequest.getNameRule();
-        fillPictureWithNameRule(pictureList, nameRule);
+        if (!nameRule.isEmpty()) {
+            fillPictureWithNameRule(pictureList, nameRule);
+        }
 
-        //6.更新数据库
+        // 6.更新数据库
         transactionTemplate.execute(status -> {
             boolean result = this.updateBatchById(pictureList);
             ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "批量编辑失败");
 
-            // 7. 同步更新 ES 数据
-            try {
-                List<EsPicture> esPictures = new ArrayList<>();
-                for (Picture picture : pictureList) {
-                    Long pictureId = picture.getId();
-                    Optional<EsPicture> esOptional = esPictureDao.findById(pictureId);
-
-                    EsPicture esPicture;
-                    if (esOptional.isPresent()) {
-                        esPicture = esOptional.get();
-                        if (StrUtil.isNotBlank(nameRule)) {
-                            esPicture.setName(picture.getName());
-                        }
-                        if (StrUtil.isNotBlank(category)) {
-                            esPicture.setCategory(category);
-                        }
-                        if (CollUtil.isNotEmpty(tags)) {
-                            esPicture.setTags(JSONUtil.toJsonStr(tags));
-                        }
-                    } else {
-                        Picture fullPicture = this.getById(pictureId);
-                        esPicture = new EsPicture();
-                        BeanUtils.copyProperties(fullPicture, esPicture);
-                    }
-                    esPictures.add(esPicture);
-                }
-                // 批量保存到 ES
-                esPictureDao.saveAll(esPictures);
-            } catch (BeansException e) {
-                // 重点：标记当前事务回滚
-                status.setRollbackOnly();
-                throw new BusinessException(ErrorCode.OPERATION_ERROR, "同步 ES 数据失败");
-            }
             return null;
         });
+
         return true;
     }
 
@@ -1270,6 +1184,80 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         return pictureVOList;
     }
 
+    @Override
+    public void batchOperationPicture(PictureOperation pictureOperation) {
+
+        // 参数校验
+        ThrowUtils.throwIf(pictureOperation == null, ErrorCode.PARAMS_ERROR);
+
+        Integer operationType = pictureOperation.getOperationType();
+        List<Long> pictureIds = pictureOperation.getIds();
+        ThrowUtils.throwIf(operationType == null, ErrorCode.PARAMS_ERROR, "操作类型不能为空");
+        ThrowUtils.throwIf(pictureIds == null, ErrorCode.PARAMS_ERROR);
+
+        PictureOperationEnum enumByValue = PictureOperationEnum.getEnumByValue(operationType);
+
+        // 批量通过、拒绝
+        if (enumByValue == PictureOperationEnum.APPROVE ||
+                enumByValue == PictureOperationEnum.REJECT) {
+            doPictureReviewByBatch(enumByValue, pictureIds);
+        } else if (enumByValue == PictureOperationEnum.DELETE) { // 批量删除
+
+            // 查询数据库中存在的对象
+            List<Picture> pictureList = this.listByIds(pictureIds).stream()
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            if (pictureList.isEmpty()) {
+                log.warn("批量删除图片: 未找到对应的图片记录, pictureIds: {}", pictureIds);
+                return;
+            }
+
+            List<Long> existPictureIds = pictureList.stream()
+                    .map(Picture::getId)
+                    .collect(Collectors.toList());
+
+            // 删除数据库对象
+            boolean deleteResult = this.removeBatchByIds(existPictureIds);
+            if (deleteResult) {
+                // 删除ES对象
+                esPictureDao.deleteAllById(existPictureIds);
+            }
+        } else {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "无效的操作类型");
+        }
+    }
+
+    /**
+     * 图片批量审核
+     */
+    private void doPictureReviewByBatch(PictureOperationEnum operationEnum, List<Long> pictureIds) {
+
+        // 使用枚举直接比较
+        PictureReviewStatusEnum reviewStatusEnum = operationEnum == PictureOperationEnum.APPROVE
+                ? PictureReviewStatusEnum.PASS
+                : PictureReviewStatusEnum.REJECT;
+
+        String reviewMessage = operationEnum == PictureOperationEnum.APPROVE
+                ? "批量审核通过"
+                : "批量审核不通过";
+
+        // 更新数据库
+        boolean result = this.update()
+                .set("reviewStatus", reviewStatusEnum.getValue())
+                .set("reviewTime", new Date())
+                .set("reviewMessage", reviewMessage)
+                .in("id", pictureIds)
+                .update();
+
+        // 更新ES
+        if (result) {
+            esUpdateService.batchUpdatePictureEs(pictureIds);
+            log.info("批量{}图片成功, 处理数量: {}",
+                    operationEnum.getText(), pictureIds.size());
+        }
+    }
+
     /**
      * 获取 top10 图片列表
      */
@@ -1316,6 +1304,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         return this.list(lambdaQueryWrapper);
     }
 
+    /**
+     * 根据命名规则，批量填充图片名字
+     */
     private void fillPictureWithNameRule(List<Picture> pictureList, String nameRule) {
         if (StrUtil.isBlank(nameRule) || CollUtil.isEmpty(pictureList)) {
             return;
@@ -1331,6 +1322,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "名称解析错误");
         }
     }
+
 }
 
 

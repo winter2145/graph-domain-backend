@@ -170,4 +170,10 @@ public interface PictureService extends IService<Picture> {
      *           1 - 周榜， 2 - 月榜， 3 - 总榜
      */
     List<PictureVO> getTop10PictureWithCache(Long id);
+
+    /**
+     * 管理员批量处理图片
+     * @param pictureOperation 图片操作请求
+     */
+    void batchOperationPicture(PictureOperation pictureOperation);
 }

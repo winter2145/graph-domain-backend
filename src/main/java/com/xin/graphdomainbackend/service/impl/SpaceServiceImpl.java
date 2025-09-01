@@ -18,6 +18,7 @@ import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.SpaceUser;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.entity.es.EsSpace;
+import com.xin.graphdomainbackend.model.entity.es.EsUser;
 import com.xin.graphdomainbackend.model.enums.SpaceLevelEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceRoleEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceTypeEnum;
@@ -26,6 +27,7 @@ import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.service.SpaceService;
 import com.xin.graphdomainbackend.service.SpaceUserService;
 import com.xin.graphdomainbackend.service.UserService;
+import com.xin.graphdomainbackend.utils.ConvertObjectUtils;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
@@ -62,10 +64,6 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
 
     @Resource
     private SpaceUserService spaceUserService;
-
-/*    @Resource
-    @Lazy
-    private DynamicShardingManager dynamicShardingManager;*/
 
     @Override
     public long addSpace(SpaceAddRequest spaceAddRequest, User loginUser) {
@@ -132,6 +130,11 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
                 result = spaceUserService.save(spaceUser);
                 ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "创建团队成员记录失败");
             }
+
+            // 数据同步到ES
+            Space dbSpace = this.getById(space.getId());
+            EsSpace esSpace = ConvertObjectUtils.toEsSpace(dbSpace);
+            esSpaceDao.save(esSpace);
 
             // 创建分表(学习用，非必要不用)
             // dynamicShardingManager.createSpacePictureTable(space);
@@ -201,6 +204,7 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         // 数据库删除
         boolean result = this.removeById(spaceId);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+
         // 从ES删除
         try {
             esSpaceDao.deleteById(spaceId);
@@ -223,6 +227,7 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
                 .map(DeleteRequest::getId)
                 .collect(Collectors.toList());
         boolean result = this.removeBatchByIds(ids);
+
         if (result) {
             // 批量删除ES数据
             try {
@@ -253,18 +258,18 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         BeanUtils.copyProperties(space, oldSpace, "id", "createTime", "userId");
 
         // 自动填充数据
-        this.fillSpaceBySpaceLevel(space);
+        this.fillSpaceBySpaceLevel(oldSpace);
         // 数据校验
-        this.validSpace(space, false);
+        this.validSpace(oldSpace, false);
         oldSpace.setEditTime(new Date());
 
         // 更新数据库
         boolean result = this.updateById(oldSpace);
         // 更新ES
         if (result) {
-            // 转换为ES实体
-            EsSpace esSpace = new EsSpace();
-            BeanUtils.copyProperties(oldSpace, esSpace);
+            // 取db中最新的space 转换为 ES实体
+            Space dbSpace = this.getById(spaceId);
+            EsSpace esSpace = ConvertObjectUtils.toEsSpace(dbSpace);
             try {
                 esSpaceDao.save(esSpace);
             } catch (Exception e) {

@@ -7,6 +7,7 @@ import org.springframework.data.elasticsearch.annotations.*;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.List;
 
 @Data
 @Document(indexName = "picture")
@@ -71,7 +72,7 @@ public class EsPicture implements Serializable {
                     @InnerField(suffix = "keyword", type = FieldType.Keyword, ignoreAbove = 256)
             }
     )
-    private String tags;
+    private List<String> tags;
 
     /**
      * 图片体积

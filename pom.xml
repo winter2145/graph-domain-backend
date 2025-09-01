@@ -75,7 +75,7 @@
             <artifactId>redisson</artifactId>
             <version>3.21.0</version>
         </dependency>
-        <!-- Mail （前期使用）-->
+        <!-- Mail （前期使用，后期删掉）-->
         <dependency>
             <groupId>com.sun.mail</groupId>
             <artifactId>javax.mail</artifactId>
@@ -118,7 +118,7 @@
             <version>3.1.8</version>
         </dependency>
 
-        <!-- Nacos 配置中心 -->
+        <!-- Nacos 配置中心（我好像没用到） -->
         <dependency>
             <groupId>com.alibaba.boot</groupId>
             <artifactId>nacos-config-spring-boot-starter</artifactId>
@@ -158,12 +158,11 @@
             <artifactId>shardingsphere-jdbc-core-spring-boot-starter</artifactId>
             <version>5.2.0</version>
         </dependency>
-<!--        &lt;!&ndash; RabbitMQ Starter &ndash;&gt;
+        <!--Spring Retry-->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-amqp</artifactId>
-        </dependency>-->
-
+            <groupId>org.springframework.retry</groupId>
+            <artifactId>spring-retry</artifactId>
+        </dependency>
 
 
         <!-- Spring AOP -->

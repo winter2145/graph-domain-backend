@@ -1,5 +1,6 @@
 package com.xin.graphdomainbackend.utils;
 
+import cn.hutool.json.JSONUtil;
 import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
@@ -31,24 +32,6 @@ public class ConvertObjectUtils {
         return esUser;
     }
 
-    public static User toUser(EsUser esUser) {
-        if (esUser == null) {
-            return null;
-        }
-        User user = new User();
-        user.setId(esUser.getId());
-        user.setUserAccount(esUser.getUserAccount());
-        user.setUserName(esUser.getUserName());
-        user.setUserAvatar(esUser.getUserAvatar());
-        user.setUserProfile(esUser.getUserProfile());
-        user.setUserRole(esUser.getUserRole());
-        user.setCreateTime(esUser.getCreateTime());
-        user.setUpdateTime(esUser.getUpdateTime());
-        user.setIsDelete(esUser.getIsDelete());
-
-        return user;
-    }
-
     public static EsPicture toEsPicture(Picture picture) {
         if (picture == null) return null;
 
@@ -60,7 +43,7 @@ public class ConvertObjectUtils {
         esPicture.setName(picture.getName());
         esPicture.setIntroduction(picture.getIntroduction());
         esPicture.setCategory(picture.getCategory());
-        esPicture.setTags(picture.getTags());
+        esPicture.setTags(JSONUtil.toList(picture.getTags(), String.class)); // 标签存储，转换格式
         esPicture.setPicSize(picture.getPicSize());
         esPicture.setPicWidth(picture.getPicWidth());
         esPicture.setPicHeight(picture.getPicHeight());
@@ -82,60 +65,6 @@ public class ConvertObjectUtils {
         esPicture.setIsDelete(picture.getIsDelete());
 
         return esPicture;
-    }
-
-    public static Picture toPicture(EsPicture esPicture) {
-        if (esPicture == null) {
-            return null;
-        }
-
-        Picture picture = new Picture();
-        picture.setId(esPicture.getId());
-        picture.setName(esPicture.getName());
-        picture.setUserId(picture.getUserId());
-        picture.setUrl(esPicture.getUrl());
-        picture.setThumbnailUrl(esPicture.getThumbnailUrl());
-        picture.setWebpUrl(esPicture.getWebpUrl());
-        picture.setIntroduction(esPicture.getIntroduction());
-        picture.setCategory(esPicture.getCategory());
-        picture.setTags(esPicture.getTags());
-        picture.setPicSize(esPicture.getPicSize());
-        picture.setPicHeight(esPicture.getPicHeight());
-        picture.setPicScale(esPicture.getPicScale());
-        picture.setPicColor(esPicture.getPicColor());
-        picture.setCommentCount(esPicture.getCommentCount());
-        picture.setLikeCount(esPicture.getLikeCount());
-        picture.setShareCount(esPicture.getShareCount());
-        picture.setSpaceId(esPicture.getSpaceId());
-        picture.setReviewStatus(esPicture.getReviewStatus());
-        picture.setReviewMessage(esPicture.getReviewMessage());
-        picture.setReviewerId(esPicture.getReviewerId());
-        picture.setReviewTime(esPicture.getReviewTime());
-        picture.setCreateTime(esPicture.getCreateTime());
-        picture.setEditTime(esPicture.getEditTime());
-        picture.setUpdateTime(esPicture.getUpdateTime());
-        picture.setIsDelete(esPicture.getIsDelete());
-
-        return picture;
-    }
-
-    public static Space toSpace(EsSpace esSpace) {
-        if (esSpace == null) {
-            return null;
-        }
-
-        Space space = new Space();
-        space.setId(esSpace.getId());
-        space.setSpaceName(esSpace.getSpaceName());
-        space.setSpaceLevel(esSpace.getSpaceLevel());
-        space.setSpaceType(esSpace.getSpaceType());
-        space.setUserId(esSpace.getUserId());
-        space.setEditTime(esSpace.getEditTime());
-        space.setCreateTime(esSpace.getCreateTime());
-        space.setUpdateTime(esSpace.getUpdateTime());
-        space.setIsDelete(esSpace.getIsDelete());
-
-        return space;
     }
 
     public static EsSpace toEsSpace(Space space) {

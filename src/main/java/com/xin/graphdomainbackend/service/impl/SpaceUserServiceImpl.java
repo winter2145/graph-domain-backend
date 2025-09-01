@@ -272,7 +272,7 @@ public class SpaceUserServiceImpl extends ServiceImpl<SpaceUserMapper, SpaceUser
         // 校验是否为管理员
         boolean isAdmin = lambdaQuery()
                 .eq(SpaceUser::getSpaceId, spaceId)
-                .eq(SpaceUser::getUserId, loginUser)
+                .eq(SpaceUser::getUserId, loginUser.getId())
                 .eq(SpaceUser::getSpaceRole, SpaceRoleEnum.ADMIN.getValue())
                 .exists();
         ThrowUtils.throwIf(!isAdmin, ErrorCode.NO_AUTH_ERROR, "您不是该空间的管理员");
