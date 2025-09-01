@@ -52,7 +52,7 @@ public class EsUpdateService {
             maxAttempts = 1,
             backoff = @Backoff(delay = 1000, multiplier = 1)
     )
-    public void BatchUpdatePictureEs(List<Long> pictureIds) {
+    public void batchUpdatePictureEs(List<Long> pictureIds) {
         List<Picture> pictureList = pictureService.listByIds(pictureIds);
         if (CollUtil.isEmpty(pictureList)) {
             return;

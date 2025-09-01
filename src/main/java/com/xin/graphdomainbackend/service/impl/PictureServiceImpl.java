@@ -35,6 +35,7 @@ import com.xin.graphdomainbackend.model.entity.LikeRecord;
 import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
+import com.xin.graphdomainbackend.model.enums.PictureOperationEnum;
 import com.xin.graphdomainbackend.model.enums.PictureReviewStatusEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceTypeEnum;
 import com.xin.graphdomainbackend.model.vo.PictureVO;
@@ -1082,9 +1083,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             }
         });
 
+
         // 5.批量重命名
         String nameRule = pictureEditByBatchRequest.getNameRule();
-        fillPictureWithNameRule(pictureList, nameRule);
+        if (!nameRule.isEmpty()) {
+            fillPictureWithNameRule(pictureList, nameRule);
+        }
 
         // 6.更新数据库
         transactionTemplate.execute(status -> {
@@ -1093,9 +1097,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
             return null;
         });
-
-        // 7.更新ES数据
-        esUpdateService.BatchUpdatePictureEs(pictureIdList);
 
         return true;
     }
@@ -1183,6 +1184,80 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         return pictureVOList;
     }
 
+    @Override
+    public void batchOperationPicture(PictureOperation pictureOperation) {
+
+        // 参数校验
+        ThrowUtils.throwIf(pictureOperation == null, ErrorCode.PARAMS_ERROR);
+
+        Integer operationType = pictureOperation.getOperationType();
+        List<Long> pictureIds = pictureOperation.getIds();
+        ThrowUtils.throwIf(operationType == null, ErrorCode.PARAMS_ERROR, "操作类型不能为空");
+        ThrowUtils.throwIf(pictureIds == null, ErrorCode.PARAMS_ERROR);
+
+        PictureOperationEnum enumByValue = PictureOperationEnum.getEnumByValue(operationType);
+
+        // 批量通过、拒绝
+        if (enumByValue == PictureOperationEnum.APPROVE ||
+                enumByValue == PictureOperationEnum.REJECT) {
+            doPictureReviewByBatch(enumByValue, pictureIds);
+        } else if (enumByValue == PictureOperationEnum.DELETE) { // 批量删除
+
+            // 查询数据库中存在的对象
+            List<Picture> pictureList = this.listByIds(pictureIds).stream()
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            if (pictureList.isEmpty()) {
+                log.warn("批量删除图片: 未找到对应的图片记录, pictureIds: {}", pictureIds);
+                return;
+            }
+
+            List<Long> existPictureIds = pictureList.stream()
+                    .map(Picture::getId)
+                    .collect(Collectors.toList());
+
+            // 删除数据库对象
+            boolean deleteResult = this.removeBatchByIds(existPictureIds);
+            if (deleteResult) {
+                // 删除ES对象
+                esPictureDao.deleteAllById(existPictureIds);
+            }
+        } else {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "无效的操作类型");
+        }
+    }
+
+    /**
+     * 图片批量审核
+     */
+    private void doPictureReviewByBatch(PictureOperationEnum operationEnum, List<Long> pictureIds) {
+
+        // 使用枚举直接比较
+        PictureReviewStatusEnum reviewStatusEnum = operationEnum == PictureOperationEnum.APPROVE
+                ? PictureReviewStatusEnum.PASS
+                : PictureReviewStatusEnum.REJECT;
+
+        String reviewMessage = operationEnum == PictureOperationEnum.APPROVE
+                ? "批量审核通过"
+                : "批量审核不通过";
+
+        // 更新数据库
+        boolean result = this.update()
+                .set("reviewStatus", reviewStatusEnum.getValue())
+                .set("reviewTime", new Date())
+                .set("reviewMessage", reviewMessage)
+                .in("id", pictureIds)
+                .update();
+
+        // 更新ES
+        if (result) {
+            esUpdateService.batchUpdatePictureEs(pictureIds);
+            log.info("批量{}图片成功, 处理数量: {}",
+                    operationEnum.getText(), pictureIds.size());
+        }
+    }
+
     /**
      * 获取 top10 图片列表
      */
@@ -1229,6 +1304,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         return this.list(lambdaQueryWrapper);
     }
 
+    /**
+     * 根据命名规则，批量填充图片名字
+     */
     private void fillPictureWithNameRule(List<Picture> pictureList, String nameRule) {
         if (StrUtil.isBlank(nameRule) || CollUtil.isEmpty(pictureList)) {
             return;
