@@ -743,6 +743,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         int uploadCount = 0;
         int page = 0;
         Set<String> seenUrls = new HashSet<>();
+        List<Long> pictureIds = new ArrayList<>();
+        boolean sign = false;
 
         while (uploadCount < count) {
             String pageUrl = baseUrl + (page * 20);
@@ -780,15 +782,26 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
                     // 上传图片
                     PictureVO pictureVO = this.uploadPicture(fileUrl, request, loginUser);
+
+                    pictureIds.add(pictureVO.getId());
                     log.info("图片上传成功，id = {}", pictureVO.getId());
                     uploadCount++;
                 } catch (Exception e) {
                     log.warn("图片上传失败：{}", fileUrl, e);
                 }
 
-                if (uploadCount >= count) break;
+                if (uploadCount >= count) {
+                    sign = true;
+                    break;
+                }
             }
         }
+
+        // 异步更新图片
+        if (!pictureIds.isEmpty() && sign) {
+            esUpdateService.batchUpdatePictureEs(pictureIds);
+        }
+
         return uploadCount;
     }
 
