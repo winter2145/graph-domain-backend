@@ -241,6 +241,14 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             picture.setSpaceId(spaceId);
         }
 
+        // 补充 图片分类与标签
+        if (uploadRequest.getCategoryName() != null) {
+            picture.setCategory(uploadRequest.getCategoryName());
+        }
+        if (uploadRequest.getTagName() != null) {
+            picture.setTags(JSONUtil.toJsonStr(uploadRequest.getTagName()));
+        }
+
         picture.setPicSize(uploadPictureResult.getPicSize());
         picture.setPicWidth(uploadPictureResult.getPicWidth());
         picture.setPicHeight(uploadPictureResult.getPicHeight());
@@ -423,9 +431,6 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         // 对象转封装类
         PictureVO pictureVO = PictureVO.objToVo(picture);
 
-        // 只加 redis 计数，不写库
-        incrementViewCount(picture.getId());
-
         // 浏览量 = 数据库值 + redis 增量
         long viewCount = getViewCount(picture.getId());
         pictureVO.setViewCount(viewCount);
@@ -445,7 +450,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
      * 根据图片id，增加阅览量
      * @param pictureId 图片id
      */
-    private void incrementViewCount(Long pictureId) {
+    @Override
+    public void incrementViewCount(Long pictureId) {
         // 构建redis缓存key
         String viewCountKey = String.format("picture:viewCount:%d", pictureId);
         // 利用redis原子性，increment（计数）
@@ -924,7 +930,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             // 更新空间的使用额度
             if (finalSpaceId != null) {
                 boolean update = spaceService.lambdaUpdate()
-                        .eq(Space::getId, oldPicture.getId())
+                        .eq(Space::getId, finalSpaceId)
                         .setSql("totalSize = totalSize - " + oldPicture.getPicSize())
                         .setSql("totalCount = totalCount - 1")
                         .update();
@@ -1286,16 +1292,16 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
         switch (id.intValue()) {
             case 1: // 周榜（上周一 00:00 ~ 上周日 23:59:59）
-                LocalDate lastWeekStart = today.minusWeeks(1).with(DayOfWeek.MONDAY);
-                LocalDate lastWeekEnd = lastWeekStart.plusDays(6);
-                startDateTime = lastWeekStart.atStartOfDay();
-                endDateTime = lastWeekEnd.atTime(LocalTime.MAX);
+                LocalDate thisWeekStart = today.with(DayOfWeek.MONDAY);
+                LocalDate thisWeekEnd = today.with(DayOfWeek.SUNDAY);
+                startDateTime = thisWeekStart.atStartOfDay();
+                endDateTime = thisWeekEnd.atTime(LocalTime.MAX);
                 break;
             case 2: // 月榜（上月 1号 00:00 ~ 上月最后一天 23:59:59）
-                LocalDate lastMonthStart = today.minusMonths(1).withDayOfMonth(1);
-                LocalDate lastMonthEnd = lastMonthStart.withDayOfMonth(lastMonthStart.lengthOfMonth());
-                startDateTime = lastMonthStart.atStartOfDay();
-                endDateTime = lastMonthEnd.atTime(LocalTime.MAX);
+                LocalDate thisMonthStart = today.withDayOfMonth(1);
+                LocalDate thisMonthEnd = today.withDayOfMonth(today.lengthOfMonth());
+                startDateTime = thisMonthStart.atStartOfDay();
+                endDateTime = thisMonthEnd.atTime(LocalTime.MAX);
                 break;
             case 3: // 总榜
                 break;

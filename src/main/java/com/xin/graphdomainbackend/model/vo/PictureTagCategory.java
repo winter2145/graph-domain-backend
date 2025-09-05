@@ -18,5 +18,5 @@ public class PictureTagCategory {
     /**
      * 分类列表
      */
-    private List<String> category;
+    private List<String> categoryList;
 }
