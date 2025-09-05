@@ -76,6 +76,11 @@ public interface PictureService extends IService<Picture> {
     PictureVO getPictureVO(Picture picture);
 
     /**
+     * 获取阅览量
+     */
+    void incrementViewCount(Long pictureId);
+
+    /**
      * 获取图片视图对象列表
      *
      * @param pictureList   图片实体列表

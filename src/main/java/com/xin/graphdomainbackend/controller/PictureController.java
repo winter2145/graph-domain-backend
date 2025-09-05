@@ -23,13 +23,11 @@ import com.xin.graphdomainbackend.model.entity.Picture;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.enums.PictureReviewStatusEnum;
+import com.xin.graphdomainbackend.model.enums.SpaceRoleEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceTypeEnum;
 import com.xin.graphdomainbackend.model.vo.PictureTagCategory;
 import com.xin.graphdomainbackend.model.vo.PictureVO;
-import com.xin.graphdomainbackend.service.PictureService;
-import com.xin.graphdomainbackend.service.SpaceService;
-import com.xin.graphdomainbackend.service.TagService;
-import com.xin.graphdomainbackend.service.UserService;
+import com.xin.graphdomainbackend.service.*;
 import com.xin.graphdomainbackend.utils.ResultUtils;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +52,9 @@ public class PictureController {
 
     @Resource
     private TagService tagService;
+
+    @Resource
+    private CategoryService categoryService;
 
     @Resource
     private SpaceUserAuthManager spaceUserAuthManager;
@@ -208,6 +209,15 @@ public class PictureController {
     }
 
     /**
+     * 增加阅览量
+     */
+    @GetMapping("/increment/viewCount")
+    public BaseResponse<Boolean> incrementViewCountEndpoint(long pictureId) {
+        pictureService.incrementViewCount(pictureId);
+        return ResultUtils.success(true);
+    }
+
+    /**
      * 分页获取图片列表（仅管理员可用）
      */
     @PostMapping("/list/page")
@@ -268,7 +278,7 @@ public class PictureController {
      * 分页获取图片列表封装类（"我的发布"）
      */
     @PostMapping("/list/my/page/vo")
-    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_VIEW)
+    @SaSpaceCheckPermission(value = SpaceUserPermissionConstant.PICTURE_EDIT)
     public BaseResponse<Page<PictureVO>> listMyPictureVOByPage(@RequestBody PictureQueryRequest pictureQueryRequest,
                                                                HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
@@ -278,6 +288,13 @@ public class PictureController {
         pictureQueryRequest.setUserId(userId);
         // 如果传了 reviewStatus
         Page<PictureVO> pictureVOByPage = pictureService.getPictureVOByPage(pictureQueryRequest);
+
+        // 赋予编辑权限
+        List<String> permissionList = spaceUserAuthManager.getPermissionsByRole(SpaceRoleEnum.EDITOR.getValue());
+        List<PictureVO> records = pictureVOByPage.getRecords();
+        records.forEach(pictureVO -> pictureVO.setPermissionList(permissionList));
+
+        pictureVOByPage.setRecords(records);
 
         return ResultUtils.success(pictureVOByPage);
     }
@@ -390,14 +407,17 @@ public class PictureController {
     }
 
     /**
-     * 获取当前图片的标签
+     * 获取当前图片的标签 和 分类
      */
     @GetMapping("/tag_category")
     public BaseResponse<PictureTagCategory> listPictureTagCategory() {
         PictureTagCategory pictureTagCategory = new PictureTagCategory();
 
         List<String> tagList = tagService.listTag();
+        List<String> categoryList= categoryService.listCategoryName(0);
         pictureTagCategory.setTagList(tagList);
+        pictureTagCategory.setCategoryList(categoryList);
+
         return ResultUtils.success(pictureTagCategory);
     }
 

@@ -209,6 +209,20 @@ CREATE TABLE tag
 )
     COMMENT '标签' COLLATE = utf8mb4_unicode_ci;
 
+-- 分类表
+CREATE TABLE category
+(
+    id           bigint AUTO_INCREMENT COMMENT '分类id'
+        PRIMARY KEY,
+    categoryName varchar(256)                       NOT NULL COMMENT '分类名称',
+    type         tinyint  DEFAULT 0                 NOT NULL COMMENT '分类类型：0-图片分类 ',
+    createTime   datetime DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    editTime     datetime DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '分类编辑时间',
+    updateTime   datetime DEFAULT CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '分类更新时间',
+    isDelete     tinyint  DEFAULT 0                 NOT NULL COMMENT '是否删除'
+)
+    COMMENT '分类' COLLATE = utf8mb4_unicode_ci;
+
 -- 关注列表
 CREATE TABLE user_follows
 (
