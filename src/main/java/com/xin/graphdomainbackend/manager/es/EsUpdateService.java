@@ -68,6 +68,24 @@ public class EsUpdateService {
         log.info("ES 更新完成，esPictures={}", esPictures);
     }
 
+    @Async("asyncExecutor")
+    @Retryable(
+            value = Exception.class,
+            maxAttempts = 1,
+            backoff = @Backoff(delay = 1000, multiplier = 1)
+    )
+    public void updateSearchKeyEs(Long pictureId) {
+        try {
+            Picture dbPicture = pictureService.getById(pictureId);
+            EsPicture esPicture = ConvertObjectUtils.toEsPicture(dbPicture);
+            log.info("开始更新 ES 数据，pictureId={}", pictureId);
+            esPictureDao.save(esPicture);
+            log.info("ES 更新完成，pictureId={}", pictureId);
+        } catch (Exception e) {
+            log.error("保存Es图片信息失败：" + e.getMessage());
+        }
+    }
+
     @Recover
     public void recover(Exception e, Object target) {
         if (target instanceof Long) {

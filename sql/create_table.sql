@@ -116,23 +116,24 @@ CREATE INDEX idx_userId
     ON space (userId);
 
 -- 聊天信息表
-CREATE TABLE `chat_message` (
-                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '聊天Id',
-                                `senderId` bigint NOT NULL COMMENT '发送者Id',
-                                `receiverId` bigint DEFAULT NULL COMMENT '接收者Id（在图片聊天室内可以不指定）',
-                                `pictureId` bigint DEFAULT NULL COMMENT '图片Id，对应图片聊天室',
-                                `content` text COMMENT '消息内容',
-                                `type` tinyint(1) NOT NULL DEFAULT '1' COMMENT '消息类型 1 - 私聊  2 - 图片聊天室',
-                                `status` tinyint(1) NOT NULL DEFAULT '0' COMMENT '状态 0 - 未读 1 - 已读',
-                                `replyId` varchar(255) DEFAULT NULL COMMENT '回复消息Id',
-                                `rootId` varchar(255) DEFAULT NULL COMMENT '会话跟消息Id',
-                                `createTime` datetime NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '创建时间',
-                                `updateTime` datetime NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                                `privateChatId` bigint DEFAULT NULL COMMENT '私聊Id',
-                                `isDelete` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否删除',
-                                `spaceId` bigint DEFAULT NULL COMMENT '空间Id',
-                                PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='聊天信息表';
+CREATE TABLE `chat_message`
+(
+    `id`                bigint          NOT NULL    AUTO_INCREMENT          COMMENT '聊天Id',
+    `senderId`          bigint          NOT NULL                            COMMENT '发送者Id',
+    `receiverId`        bigint          DEFAULT NULL                        COMMENT '接收者Id（在图片聊天室内可以不指定）',
+    `pictureId`         bigint          DEFAULT NULL                        COMMENT '图片Id，对应图片聊天室',
+    `content`           text                                                COMMENT '消息内容',
+    `type`              tinyint(1)      NOT NULL DEFAULT '1'                COMMENT '消息类型 1 - 私聊  2 - 图片聊天室',
+    `status`            tinyint(1)      NOT NULL DEFAULT '0'                COMMENT '状态 0 - 未读 1 - 已读',
+    `replyId`           varchar(255)    DEFAULT NULL                        COMMENT '回复消息Id',
+    `rootId`            varchar(255)    DEFAULT NULL                        COMMENT '会话跟消息Id',
+    `createTime`        datetime        NOT NULL ON UPDATE CURRENT_TIMESTAMP   COMMENT '创建时间',
+    `updateTime`        datetime        NOT NULL ON UPDATE CURRENT_TIMESTAMP   COMMENT '更新时间',
+    `privateChatId`     bigint          DEFAULT NULL                         COMMENT '私聊Id',
+    `isDelete`          tinyint(1)      NOT NULL DEFAULT '0'                 COMMENT '是否删除',
+    `spaceId`           bigint          DEFAULT NULL                         COMMENT '空间Id',
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci  COMMENT='聊天信息表';
 
 CREATE INDEX idx_picture
     ON chat_message (pictureId);
@@ -320,3 +321,19 @@ CREATE TABLE share_history
    targetUserId bigint                     NOT NULL COMMENT '被分享内容所属用户ID',
    shareTime    datetime  DEFAULT CURRENT_TIMESTAMP COMMENT '分享时间'
 ) COMMENT='记录用户每一次真实的分享行为' COLLATE = utf8mb4_unicode_ci;
+
+-- 热门搜索表
+CREATE TABLE hot_search
+(
+    id             bigint AUTO_INCREMENT COMMENT '主键'
+        PRIMARY KEY,
+    keyword        varchar(128)                       NOT NULL COMMENT '搜索关键词',
+    type           varchar(32)                        NOT NULL COMMENT '搜索类型',
+    count          bigint   DEFAULT 0                 NOT NULL COMMENT '搜索次数',
+    createTime     datetime DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    lastUpdateTime datetime                           NOT NULL COMMENT '最后更新时间',
+    isDelete       tinyint  DEFAULT 0                 NOT NULL COMMENT '是否删除',
+    CONSTRAINT uk_type_keyword
+        UNIQUE (type, keyword)
+)
+    COMMENT '热门搜索记录表' COLLATE = utf8mb4_unicode_ci;

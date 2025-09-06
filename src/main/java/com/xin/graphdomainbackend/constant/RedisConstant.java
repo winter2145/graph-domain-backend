@@ -40,6 +40,16 @@ public interface RedisConstant {
     String PRIVATE_CHAT_HISTORY_PREFIX = "chat:private:";
 
     /**
+     * 热门搜索词缓存前缀
+     */
+    String HOT_SEARCH_CACHE_KEY = "hot_search:";
+
+    /**
+     * 热门搜索过期时间 15分钟
+     */
+    int CACHE_EXPIRE_TIME = 15 * 60;  // 15分钟
+
+    /**
      * 获取用户签到记录的 Redis Key
      * @param year 年份
      * @param userId 用户 id
