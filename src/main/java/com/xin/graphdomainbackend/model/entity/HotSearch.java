@@ -7,42 +7,42 @@ import java.util.Date;
 import lombok.Data;
 
 /**
- * 分类
- * @TableName category
+ * 热门搜索记录表
+ * @TableName hot_search
  */
-@TableName(value ="category")
+@TableName(value ="hot_search")
 @Data
-public class Category implements Serializable {
+public class HotSearch implements Serializable {
     /**
-     * 分类id
+     * 主键
      */
     @TableId(type = IdType.AUTO)
     private Long id;
 
     /**
-     * 分类名称
+     * 搜索关键词
      */
-    private String categoryName;
+    private String keyword;
 
     /**
-     * 分类类型：0-图片分类 
+     * 搜索类型
      */
-    private Integer type;
+    private String type;
+
+    /**
+     * 搜索次数
+     */
+    private Long count;
+
+    /**
+     * 最后更新时间
+     */
+    private Date lastUpdateTime;
 
     /**
      * 创建时间
      */
     private Date createTime;
-
-    /**
-     * 分类编辑时间
-     */
-    private Date editTime;
-
-    /**
-     * 分类更新时间
-     */
-    private Date updateTime;
 
     /**
      * 是否删除

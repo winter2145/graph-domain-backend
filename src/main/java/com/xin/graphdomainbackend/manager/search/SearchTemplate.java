@@ -3,6 +3,7 @@ package com.xin.graphdomainbackend.manager.search;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.model.dto.search.SearchRequest;
+import com.xin.graphdomainbackend.service.HotSearchService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
 import org.springframework.data.domain.Page;
@@ -18,13 +19,16 @@ public abstract class SearchTemplate<T> {
     @Resource
     protected ElasticsearchRestTemplate elasticsearchRestTemplate;
 
+    @Resource
+    protected HotSearchService hotSearchService;
+
     public Page<T> search(SearchRequest request) {
 
         // 校验参数
         validate(request);
 
         // 记录搜索关键字
-        // recordSearchKeyword(request.getSearchText(), request.getType());
+        recordSearchKeyword(request.getSearchText(), request.getType());
 
         // 构建查询条件
         Query query = buildQuery(request);
@@ -83,13 +87,9 @@ public abstract class SearchTemplate<T> {
 
     /**
      * 记录搜索关键词（可选操作）
-     * 可用于后续的数据分析、热门搜索统计等功能
-     *
-     * @param searchText 搜索关键词
-     * @param type       搜索类型
+     * 热门搜索统计等功能
      */
     protected void recordSearchKeyword(String searchText, String type) {
-        // TODO: 实现关键词记录逻辑，如存入数据库、发送到消息队列等
-        // 示例：searchRecordService.record(searchText, type, new Date());
+        hotSearchService.recordSearchKeyword(searchText, type);
     }
 }

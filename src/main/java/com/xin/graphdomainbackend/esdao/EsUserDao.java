@@ -21,24 +21,4 @@ public interface EsUserDao
      */
     List<EsUser> findByUserAccountContaining(String userAccount);
 
-    /**
-     * 根据用户名查询(模糊)
-     */
-    List<EsUser> findByUserNameContaining(String username);
-
-    /**
-     * 根据用户简介查询(模糊)
-     */
-    List<EsUser> findByUserProfileContaining(String userProfile);
-
-    /**
-     * 根据用户角色查询(精准)
-     */
-    List<EsUser> findByUserRole(String userRole);
-
-    /**
-     * 根据用户名或简介查询(模糊)
-     */
-    List<EsUser> findByUserNameContainingOrUserProfileContaining(String userName, String userProfile);
-
 }
