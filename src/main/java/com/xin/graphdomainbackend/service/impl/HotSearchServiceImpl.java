@@ -119,7 +119,6 @@ public class HotSearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch
             newEs.setId(newHot.getId()); // 用 MySQL 生成的 id 作为 ES 的 id, 强制保持一致
             newEs.setKeyword(searchText);
             newEs.setType(type);
-            newEs.setCreateTime(new Date());
             esSearchKeyDao.save(newEs);
         } else {
             // ES 已存在 -> 拿主键

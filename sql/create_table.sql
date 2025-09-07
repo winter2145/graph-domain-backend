@@ -337,3 +337,6 @@ CREATE TABLE hot_search
         UNIQUE (type, keyword)
 )
     COMMENT '热门搜索记录表' COLLATE = utf8mb4_unicode_ci;
+
+CREATE INDEX idx_type_updateTime_count_delete
+    ON hot_search (type, lastUpdateTime, count, isDelete);
