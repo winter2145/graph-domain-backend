@@ -130,7 +130,7 @@ public interface UserService extends IService<User> {
     Map<String, String> getCaptcha();
 
     /**
-     * 判断用户时候登录
+     * 判断用户是否登录
      * @param request Http请求
      */
     Boolean isLogin(HttpServletRequest request);

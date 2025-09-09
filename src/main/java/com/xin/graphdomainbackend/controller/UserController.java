@@ -14,8 +14,8 @@ import com.xin.graphdomainbackend.model.dto.DeleteRequest;
 import com.xin.graphdomainbackend.model.dto.user.*;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.vo.LoginUserVO;
-import com.xin.graphdomainbackend.model.vo.PictureVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
+import com.xin.graphdomainbackend.service.SignInService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ResultUtils;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
@@ -42,6 +42,9 @@ public class UserController {
 
     @Resource
     private CrawlerManager crawlerManager;
+
+    @Resource
+    private SignInService signInService;
 
     /**
      * 获取验证码
@@ -253,5 +256,27 @@ public class UserController {
         String avatarURL = userService.uploadAvatar(multipartFile, id, request);
 
         return ResultUtils.success(avatarURL);
+    }
+
+    /**
+     * 用户签到
+     */
+    @PostMapping("/add/sign_in")
+    @LoginCheck
+    public BaseResponse<Boolean> signInEveryDay(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        Long userId = loginUser.getId();
+        return ResultUtils.success(signInService.signIn(userId));
+    }
+
+    /**
+     * 获取用户签到记录
+     */
+    @GetMapping("/get/sign_in")
+    public BaseResponse<List<Integer>> getUserSignInRecord(Integer year, HttpServletRequest request) {
+        // 必须要登录才能获取
+        User loginUser = userService.getLoginUser(request);
+        List<Integer> userSignInRecord = signInService.getUserSignInRecord(loginUser.getId(), year);
+        return ResultUtils.success(userSignInRecord);
     }
 }

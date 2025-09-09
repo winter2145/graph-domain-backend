@@ -8,7 +8,7 @@ import java.util.List;
  * 图片标签分类列表视图
  */
 @Data
-public class PictureTagCategory {
+public class PictureTagCategoryVO {
 
     /**
      * 标签列表

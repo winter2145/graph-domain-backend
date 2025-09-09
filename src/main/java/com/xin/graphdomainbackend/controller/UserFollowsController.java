@@ -62,6 +62,7 @@ public class UserFollowsController {
     /**
      * 查找关注和粉丝数量
      */
+    @LoginCheck
     @PostMapping("/getfollowandfanscount/{id}")
     public BaseResponse<FollowersAndFansVO> getFollowAndFansCount(@PathVariable Long id){
         return ResultUtils.success(userFollowsService.getFollowAndFansCount(id));

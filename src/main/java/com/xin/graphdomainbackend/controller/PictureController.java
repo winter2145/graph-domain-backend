@@ -25,7 +25,7 @@ import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.enums.PictureReviewStatusEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceRoleEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceTypeEnum;
-import com.xin.graphdomainbackend.model.vo.PictureTagCategory;
+import com.xin.graphdomainbackend.model.vo.PictureTagCategoryVO;
 import com.xin.graphdomainbackend.model.vo.PictureVO;
 import com.xin.graphdomainbackend.service.*;
 import com.xin.graphdomainbackend.utils.ResultUtils;
@@ -410,15 +410,15 @@ public class PictureController {
      * 获取当前图片的标签 和 分类
      */
     @GetMapping("/tag_category")
-    public BaseResponse<PictureTagCategory> listPictureTagCategory() {
-        PictureTagCategory pictureTagCategory = new PictureTagCategory();
+    public BaseResponse<PictureTagCategoryVO> listPictureTagCategory() {
+        PictureTagCategoryVO pictureTagCategoryVO = new PictureTagCategoryVO();
 
         List<String> tagList = tagService.listTag();
         List<String> categoryList= categoryService.listCategoryName(0);
-        pictureTagCategory.setTagList(tagList);
-        pictureTagCategory.setCategoryList(categoryList);
+        pictureTagCategoryVO.setTagList(tagList);
+        pictureTagCategoryVO.setCategoryList(categoryList);
 
-        return ResultUtils.success(pictureTagCategory);
+        return ResultUtils.success(pictureTagCategoryVO);
     }
 
     /**

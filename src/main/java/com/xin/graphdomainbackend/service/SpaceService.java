@@ -12,6 +12,7 @@ import com.xin.graphdomainbackend.model.dto.spaceuser.SpaceUserAuditRequest;
 import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.vo.SpaceVO;
+import com.xin.graphdomainbackend.model.vo.space.SpaceCreatedVO;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -100,4 +101,10 @@ public interface SpaceService extends IService<Space> {
      */
     void checkPrivateSpaceAuth(User loginUser, Space space);
 
+    /**
+     * 用户下的所有空间（我的空间 + 团队空间）
+     * @param spacePage 空间分页对象
+     * @return
+     */
+    Page<SpaceCreatedVO> getCreatedSpaceVOByPage(Page<Space> spacePage, Integer spaceLevel);
 }

@@ -3,8 +3,10 @@ package com.xin.graphdomainbackend.config;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.boot.jackson.JsonComponent;
 import org.springframework.context.annotation.Bean;
 
@@ -30,6 +32,12 @@ public class JsonConfig {
         // 其他常用配置
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);  // 忽略null字段
+
+        /* =============== 关键：注册 JSR310 模块 =============== */
+        objectMapper.registerModule(new JavaTimeModule());
+        // 禁用时间戳写法（可选，推荐）
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
 
         return objectMapper;
     }

@@ -72,7 +72,6 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
        User user = userService.getLoginUser(request);
        ThrowUtils.throwIf(user == null || commentsAddRequest == null, ErrorCode.PARAMS_ERROR);
 
-
        // 如果不是是图片下的评论
        if (commentsAddRequest.getTargetType() != 1) {
            throw new BusinessException(ErrorCode.PARAMS_ERROR, "不支持的评论类型");
@@ -226,7 +225,6 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
                 setLikeStatusForAllComments(commentsVOList, likeStatusMap);
             }
         }
-
 
         // 构造分页结果
         Page<CommentsVO> resultPage = new Page<>(current, size, commentsPage.getTotal());

@@ -24,6 +24,7 @@ import com.xin.graphdomainbackend.model.enums.SpaceRoleEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceTypeEnum;
 import com.xin.graphdomainbackend.model.vo.SpaceVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
+import com.xin.graphdomainbackend.model.vo.space.SpaceCreatedVO;
 import com.xin.graphdomainbackend.service.SpaceService;
 import com.xin.graphdomainbackend.service.SpaceUserService;
 import com.xin.graphdomainbackend.service.UserService;
@@ -375,6 +376,51 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         if (!space.getUserId().equals(loginUser.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
+    }
+
+    @Override
+    public Page<SpaceCreatedVO> getCreatedSpaceVOByPage(Page<Space> spacePage, Integer spaceLevel) {
+        List<Space> spaceList = spacePage.getRecords();
+
+        long current = spacePage.getCurrent(); // 当前页号
+        long pageSize = spacePage.getSize(); //每页大
+        long total = spacePage.getTotal();
+
+        // 创建一个相同大小的Page对象
+        Page<SpaceCreatedVO> spaceCreatedVOPage = new Page<>(current, pageSize, total);
+        if (CollUtil.isEmpty(spaceList)) {
+            return spaceCreatedVOPage;
+        }
+
+        // 将List<Space> -> List<spaceCreatedVOPage>
+        List<SpaceCreatedVO> spaceCreatedVOList = spaceList
+                .stream()
+                .map(space -> {
+                    SpaceCreatedVO spaceCreatedVO = new SpaceCreatedVO();
+                    BeanUtils.copyProperties(space, spaceCreatedVO);
+
+                    SpaceLevelEnum levelEnum = SpaceLevelEnum.getEnumByValue(space.getSpaceLevel());
+                    if (levelEnum != null) {
+                        String spaceLevelName = levelEnum.getText();
+                        spaceCreatedVO.setSpaceLevelName(spaceLevelName);
+                    }
+                    SpaceTypeEnum typeEnum = SpaceTypeEnum.getEnumByValue(space.getSpaceType());
+                    if (typeEnum != null) {
+                        String spaceTypeName = typeEnum.getText();
+                        spaceCreatedVO.setSpaceTypeName(spaceTypeName);
+                    }
+
+                    spaceCreatedVO.setCanExchange(Boolean.TRUE);
+                    if (spaceLevel == space.getSpaceLevel()) {
+                        spaceCreatedVO.setCanExchange(Boolean.FALSE);
+                    }
+                    return spaceCreatedVO;
+                }).collect(Collectors.toList());
+
+        // SpaceVO列表 存入 Page<SpaceVO>
+        spaceCreatedVOPage.setRecords(spaceCreatedVOList);
+
+        return spaceCreatedVOPage;
     }
 
 
