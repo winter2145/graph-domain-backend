@@ -37,22 +37,31 @@ public class PointsServiceImpl extends ServiceImpl<UserPointsAccountMapper, User
         ThrowUtils.throwIf(userId == null || userId <= 0, ErrorCode.PARAMS_ERROR);
         UserPointsAccount existAccount = this.baseMapper.selectByUserId(userId);
         UserPointsAccount newAccount = new UserPointsAccount();
+
+        int currentPoints;
+        int totalPoints;
+        newAccount.setUserId(userId);
         if (existAccount == null) { // 插入用户积分
-            newAccount.setUserId(userId);
-            newAccount.setTotalPoints(points);
-            newAccount.setAvailablePoints(points);
+            currentPoints = points;
+            totalPoints = points;
+            newAccount.setTotalPoints(currentPoints);
+            newAccount.setAvailablePoints(totalPoints);
             this.baseMapper.insert(newAccount);
         } else { // 更新用户积分
-            newAccount.setAvailablePoints(existAccount.getAvailablePoints() + points);
-            newAccount.setTotalPoints(existAccount.getTotalPoints() + points);
-            this.baseMapper.updateById(newAccount);
+            currentPoints = existAccount.getAvailablePoints() + points;
+            totalPoints = existAccount.getTotalPoints() + points;
+            this.lambdaUpdate()
+                    .eq(UserPointsAccount::getUserId, userId)
+                    .set(UserPointsAccount::getAvailablePoints, currentPoints)
+                    .set(UserPointsAccount::getTotalPoints, totalPoints)
+                    .update();
         }
 
         // 插入用户积分流水
         UserPointsLog userPointsLog = new UserPointsLog();
         userPointsLog.setUserId(userId);
-        userPointsLog.setBeforePoints(newAccount.getAvailablePoints() - points);
-        userPointsLog.setAfterPoints(newAccount.getAvailablePoints());
+        userPointsLog.setBeforePoints(currentPoints - points);
+        userPointsLog.setAfterPoints(currentPoints);
         userPointsLog.setRemark(remark); // 添加备注
         userPointsLog.setChangePoints(points); //积分变化值
         userPointsLog.setChangeType(PointsChangeTypeEnum.SIGN_IN.getValue()); // 用户签到

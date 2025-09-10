@@ -2,6 +2,9 @@ package com.xin.graphdomainbackend.model.vo;
 
 import lombok.Data;
 
+/**
+ * 积分兑换规则视图
+ */
 @Data
 public class PointsExchangeRuleVO {
     /**

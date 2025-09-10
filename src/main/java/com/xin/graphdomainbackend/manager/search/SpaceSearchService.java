@@ -7,6 +7,7 @@ import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.entity.es.EsSpace;
 import com.xin.graphdomainbackend.model.vo.SpaceVO;
 import com.xin.graphdomainbackend.service.SpaceService;
+import com.xin.graphdomainbackend.service.SpaceUserService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ConvertObjectUtils;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -35,6 +36,9 @@ public class SpaceSearchService extends SearchTemplate<SpaceVO>{
 
     @Resource
     protected UserService userService;
+
+    @Resource
+    private SpaceUserService spaceUserService;
 
     @Override
     protected Query buildQuery(SearchRequest request) {
@@ -105,6 +109,8 @@ public class SpaceSearchService extends SearchTemplate<SpaceVO>{
             // 创建Id到实体的映射，便于快速查找
             Map<Long, Space> spaceMap = spaces.stream()
                     .collect(Collectors.toMap(Space::getId, Function.identity()));
+            // 批量获取成员数量
+            Map<Long, Integer> spaceMemberCount = spaceUserService.getSpaceMemberCount(spaceIds);
 
             // 按照原始Id顺序重现构建结果
             spaceVOList = spaceIds.stream()
@@ -112,6 +118,8 @@ public class SpaceSearchService extends SearchTemplate<SpaceVO>{
                     .filter(Objects::nonNull)
                     .map(space -> {
                         SpaceVO spaceVO = SpaceVO.objToVo(space);
+                        Long spaceId = space.getId();
+                        spaceVO.setMemberCount(spaceMemberCount.get(spaceId));
 
                         User user = userService.getById(space.getUserId());
                         if (user != null) {

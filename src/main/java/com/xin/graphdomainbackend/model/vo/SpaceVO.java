@@ -57,7 +57,7 @@ public class SpaceVO implements Serializable {
     private UserVO user;
 
     // 空间成员数量
-    private Long memberCount;
+    private Integer memberCount;
 
     /**
      * 权限列表

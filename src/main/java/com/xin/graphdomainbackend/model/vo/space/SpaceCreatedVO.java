@@ -5,7 +5,6 @@ import lombok.Data;
 /**
  * 用户创建的空间 视图
  */
-
 @Data
 public class SpaceCreatedVO {
     // id

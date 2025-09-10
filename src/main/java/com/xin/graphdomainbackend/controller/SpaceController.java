@@ -5,6 +5,7 @@ import cn.hutool.core.util.ObjUtil;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xin.graphdomainbackend.annotation.AuthCheck;
+import com.xin.graphdomainbackend.annotation.LoginCheck;
 import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.exception.BusinessException;
@@ -207,6 +208,7 @@ public class SpaceController {
      * 获取用户下的所有空间（我的空间 + 团队空间）
      */
     @PostMapping("/list/page/created")
+    @LoginCheck
     public BaseResponse<Page<SpaceCreatedVO>> listCreatedSpaceVOByPage(@RequestBody SpaceQueryRequest spaceQueryRequest,
                                                               HttpServletRequest request) {
         long current = spaceQueryRequest.getCurrent();
@@ -227,7 +229,5 @@ public class SpaceController {
 
         return ResultUtils.success(spaceVOPage);
     }
-
-
 
 }

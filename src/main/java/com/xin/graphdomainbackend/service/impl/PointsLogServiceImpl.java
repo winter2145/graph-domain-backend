@@ -11,7 +11,8 @@ import org.springframework.stereotype.Service;
 import java.util.stream.Collectors;
 
 @Service
-public class PointsLogServiceImpl extends ServiceImpl<UserPointsLogMapper, UserPointsLog> implements PointsLogService {
+public class PointsLogServiceImpl extends ServiceImpl<UserPointsLogMapper, UserPointsLog>
+        implements PointsLogService {
 
     @Override
     public Page<PointsLogVO> getUserPointsLogs(Long userId, int pageNum, int pageSize) {
