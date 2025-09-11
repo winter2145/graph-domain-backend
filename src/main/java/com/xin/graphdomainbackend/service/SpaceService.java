@@ -104,7 +104,14 @@ public interface SpaceService extends IService<Space> {
     /**
      * 用户下的所有空间（我的空间 + 团队空间）
      * @param spacePage 空间分页对象
-     * @return
      */
     Page<SpaceCreatedVO> getCreatedSpaceVOByPage(Page<Space> spacePage, Integer spaceLevel);
+
+    /**
+     * 根据空间级别升级空间
+     * @param spaceLevel 要升级到的空间等级
+     * @param space 目标空间对象
+     * @param userId 当前登录用户Id
+     */
+    Boolean  upgradeSpaceBySpaceLevel(Integer spaceLevel, Space space, Long userId);
 }
