@@ -7,6 +7,9 @@ import org.redisson.config.Config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.RedisSerializer;
 
 /**
  * redis 配置
@@ -33,8 +36,19 @@ public class RedissonConfig {
         //  使用单个Redis，没有开集群 useClusterServers()  设置地址和使用库
         config.useSingleServer().setAddress(redisAddress).setDatabase(database);
         // 2. 创建实例
-        RedissonClient redisson = Redisson.create(config);
-        return redisson;
+        return Redisson.create(config);
     }
 
+    /**
+     * 用于读取 Redis 原生 bitmap 字节数组
+     */
+    @Bean
+    public RedisTemplate<String, byte[]> byteRedisTemplate(RedisConnectionFactory factory) {
+        RedisTemplate<String, byte[]> template = new RedisTemplate<>();
+        template.setConnectionFactory(factory);
+        template.setKeySerializer(RedisSerializer.string());
+        template.setValueSerializer(RedisSerializer.byteArray());
+        template.afterPropertiesSet();
+        return template;
+    }
 }
