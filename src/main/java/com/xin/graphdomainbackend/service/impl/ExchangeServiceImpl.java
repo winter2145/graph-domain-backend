@@ -16,6 +16,7 @@ import com.xin.graphdomainbackend.model.enums.SpaceLevelEnum;
 import com.xin.graphdomainbackend.model.vo.PointsExchangeRuleVO;
 import com.xin.graphdomainbackend.service.ExchangeService;
 import com.xin.graphdomainbackend.service.PointsService;
+import com.xin.graphdomainbackend.service.SpaceService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,9 @@ public class ExchangeServiceImpl extends ServiceImpl<PointsExchangeRuleMapper, P
 
     @Resource
     private SpaceMapper spaceMapper;
+
+    @Resource
+    private SpaceService spaceService;
 
     @Resource
     private UserPointsAccountMapper userPointsAccountMapper;
@@ -62,10 +66,7 @@ public class ExchangeServiceImpl extends ServiceImpl<PointsExchangeRuleMapper, P
         pointsService.deductPoints(userId, rule.getCostPoints(), "兑换空间升级");
 
         // 升级空间
-        space.setSpaceLevel(rule.getToLevel());
-        spaceMapper.updateById(space);
-
-        return true;
+        return spaceService.upgradeSpaceBySpaceLevel(rule.getToLevel(), space, userId);
     }
 
     @Override

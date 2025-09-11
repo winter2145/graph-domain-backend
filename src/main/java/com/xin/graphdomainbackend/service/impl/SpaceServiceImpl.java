@@ -18,7 +18,6 @@ import com.xin.graphdomainbackend.model.entity.Space;
 import com.xin.graphdomainbackend.model.entity.SpaceUser;
 import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.entity.es.EsSpace;
-import com.xin.graphdomainbackend.model.entity.es.EsUser;
 import com.xin.graphdomainbackend.model.enums.SpaceLevelEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceRoleEnum;
 import com.xin.graphdomainbackend.model.enums.SpaceTypeEnum;
@@ -94,7 +93,6 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限创建指定级别的空间");
         }
 
-        // 4.控制同一个用户只能创建一个私有空间
         // 利用 redisson 构造分布式锁 key
         long userId = loginUser.getId();
         String lockKey = String.format("space:create:private:lock:%s", userId);
@@ -110,10 +108,20 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
                 queryWrapper.eq(Space::getUserId, loginUser.getId())
                         .eq(Space::getSpaceType, SpaceTypeEnum.PRIVATE.getValue());
                 long count = this.count(queryWrapper);
-                if (count > 0) {
+                if (count > 0) { // 控制同一个用户只能创建一个私有空间
                     throw new BusinessException(ErrorCode.OPERATION_ERROR, "每个用户只能创建一个私有空间");
                 }
             }
+
+            // 查询当前用户创建团队空间的数量
+            if (SpaceTypeEnum.TEAM.getValue() == space.getSpaceType()) {
+                LambdaQueryWrapper<Space> queryWrapper = new LambdaQueryWrapper<>();
+                queryWrapper.eq(Space::getUserId, userId)
+                        .eq(Space::getSpaceType, SpaceTypeEnum.TEAM.getValue());
+                long count = this.count(queryWrapper);
+                ThrowUtils.throwIf(count >= 3, ErrorCode.OPERATION_ERROR, "每个用户最多只能创建三个团队空间");
+            }
+
             // 5.填充信息，保存空间
             this.fillSpaceBySpaceLevel(space);
             space.setUserId(loginUser.getId());
@@ -411,7 +419,7 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
                     }
 
                     spaceCreatedVO.setCanExchange(Boolean.TRUE);
-                    if (spaceLevel == space.getSpaceLevel()) {
+                    if (spaceLevel.equals(space.getSpaceLevel())) {
                         spaceCreatedVO.setCanExchange(Boolean.FALSE);
                     }
                     return spaceCreatedVO;
@@ -421,6 +429,73 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         spaceCreatedVOPage.setRecords(spaceCreatedVOList);
 
         return spaceCreatedVOPage;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean upgradeSpaceBySpaceLevel(Integer spaceLevel, Space space, Long userId) {
+        ThrowUtils.throwIf(space == null || spaceLevel == null, ErrorCode.PARAMS_ERROR);
+
+        // 获取要升级的空间等级枚举
+        SpaceLevelEnum spaceLevelEnum = SpaceLevelEnum.getEnumByValue(spaceLevel);
+        if (spaceLevelEnum == null) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "没有对应的升级空间");
+        }
+        // 获取空间的等级
+        Long spaceId = space.getId();
+
+        // 增加分布式锁，防止并发
+        String lockKey = String.format("space:upgrade:lock:%s", spaceId);
+        RLock lock = redissonClient.getLock(lockKey);
+        try {
+            // 2. 抢锁，5 秒超时
+            boolean isLock = lock.tryLock(5, TimeUnit.SECONDS);
+            if (!isLock) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "系统繁忙，请稍后重试");
+            }
+
+            // 3. 业务逻辑
+            Space dbSpace = this.getById(spaceId);
+            ThrowUtils.throwIf(dbSpace == null, ErrorCode.NOT_FOUND_ERROR);
+            // 只能自己的空间才能升级
+            if (!dbSpace.getUserId().equals(userId)) {
+                throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权操作他人空间");
+            }
+
+            SpaceLevelEnum target = SpaceLevelEnum.getEnumByValue(spaceLevel);
+            ThrowUtils.throwIf(target == null, ErrorCode.OPERATION_ERROR, "没有对应的升级空间");
+            if (dbSpace.getSpaceLevel().equals(spaceLevel)) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "已是当前等级，无需升级");
+            }
+
+            // 升级 DB
+            long maxSize = target.getMaxSize();
+            long maxCount = target.getMaxCount();
+            int value = target.getValue();
+            dbSpace.setSpaceLevel(value);
+            dbSpace.setMaxSize(maxSize);
+            dbSpace.setMaxCount(maxCount);
+            boolean ok = this.updateById(dbSpace);
+
+            // 更新ES
+            if (ok) {
+                EsSpace esSpace = ConvertObjectUtils.toEsSpace(dbSpace);
+                try{
+                    esSpaceDao.save(esSpace);
+                } catch (Exception e) {
+                    throw new RuntimeException("ES Space 更新失败", e);
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "获取锁中断");
+        } finally {
+            // 5. 只释放自己线程加的锁，避免误删
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
+        return true;
     }
 }
 
