@@ -319,6 +319,10 @@ public class CommentsServiceImpl extends ServiceImpl<CommentsMapper, Comments>
         Page<Comments> commentsPage = page(page, lambdaQueryWrapper);
         List<Comments> records = commentsPage.getRecords();
 
+        if (records.isEmpty()) {
+            return new Page<CommentsVO>();
+        }
+
         // 所有用户 ID 收集器（顶级 + 子评论）
         Set<Long> allUserIds = new HashSet<>();
 

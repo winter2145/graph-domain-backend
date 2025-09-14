@@ -81,8 +81,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
 
         try {
-            // 保存用户session - 这里是全局用户会话记录，用于判断用户是否在线
-            // sessionService.addUserSession(user.getId(), session);
 
             // 图片聊天室
             if (pictureId != null) {
