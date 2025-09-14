@@ -20,18 +20,16 @@ import com.xin.graphdomainbackend.model.entity.User;
 import com.xin.graphdomainbackend.model.enums.SpaceLevelEnum;
 import com.xin.graphdomainbackend.model.vo.SpaceLevelVO;
 import com.xin.graphdomainbackend.model.vo.SpaceVO;
+import com.xin.graphdomainbackend.model.vo.space.SpaceCreatedVO;
 import com.xin.graphdomainbackend.service.SpaceService;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ResultUtils;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.tags.HtmlEscapeTag;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -204,6 +202,32 @@ public class SpaceController {
                 .collect(Collectors.toList());
 
         return ResultUtils.success(spaceLevelVOList);
+    }
+
+    /**
+     * 获取用户下的所有空间（我的空间 + 团队空间）
+     */
+    @PostMapping("/list/page/created")
+    @LoginCheck
+    public BaseResponse<Page<SpaceCreatedVO>> listCreatedSpaceVOByPage(@RequestBody SpaceQueryRequest spaceQueryRequest,
+                                                              HttpServletRequest request) {
+        long current = spaceQueryRequest.getCurrent();
+        long size = spaceQueryRequest.getPageSize();
+        Long userId = spaceQueryRequest.getUserId();
+        Integer spaceLevel = spaceQueryRequest.getSpaceLevel();
+
+        SpaceQueryRequest queryRequest = new SpaceQueryRequest();
+        queryRequest.setUserId(userId);
+
+
+        Page<Space> spacePage = spaceService.page(
+                new Page<>(current, size),
+                spaceService.getQueryWrapper(queryRequest)
+        );
+
+        Page<SpaceCreatedVO> spaceVOPage = spaceService.getCreatedSpaceVOByPage(spacePage, spaceLevel);
+
+        return ResultUtils.success(spaceVOPage);
     }
 
 }

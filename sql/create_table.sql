@@ -340,3 +340,54 @@ CREATE TABLE hot_search
 
 CREATE INDEX idx_type_updateTime_count_delete
     ON hot_search (type, lastUpdateTime, count, isDelete);
+
+-- 用户积分账户表
+CREATE TABLE user_points_account
+(
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY       COMMENT '主键',
+    userId          BIGINT       NOT NULL                   COMMENT '用户 id',
+    totalPoints     INT DEFAULT 0 NOT NULL                  COMMENT '累计积分（历史总和）',
+    availablePoints INT DEFAULT 0 NOT NULL                  COMMENT '当前可用积分（余额）',
+    createTime      DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    updateTime      DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uniq_user (userId)
+) COMMENT '用户积分账户表' COLLATE = utf8mb3_unicode_ci;
+
+-- 用户积分流水表（明细）
+CREATE TABLE user_points_log
+(
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT 'id',
+    userId      BIGINT NOT NULL COMMENT '用户 id',
+    changeType  TINYINT NOT NULL COMMENT '变动类型：1-签到 2-兑换 3-系统赠送 4-其他',
+    changePoints INT    NOT NULL COMMENT '积分变化值（正数表示增加，负数表示减少）',
+    beforePoints INT    NOT NULL COMMENT '变动前积分',
+    afterPoints  INT    NOT NULL COMMENT '变动后积分',
+    bizId       BIGINT  NULL COMMENT '业务关联 id（比如 spaceId、签到记录id）',
+    remark      VARCHAR(255) NULL COMMENT '备注',
+    createTime  DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    KEY idx_user (userId)
+) COMMENT '用户积分流水表' COLLATE = utf8mb3_unicode_ci;
+
+-- 签到记录表
+CREATE TABLE user_signin_record
+(
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT 'id',
+    userId     BIGINT NOT NULL COMMENT '用户 id',
+    signDate   DATE   NOT NULL COMMENT '签到日期',
+    points     INT DEFAULT 1 NOT NULL COMMENT '签到获得积分',
+    createTime DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '签到时间',
+    UNIQUE KEY uniq_sign (userId, signDate)
+) COMMENT '用户签到记录表' COLLATE = utf8mb3_unicode_ci;
+
+-- 积分兑换规则表
+CREATE TABLE points_exchange_rule
+(
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT 'id',
+    fromLevel  INT NOT NULL COMMENT '原等级（0-普通版 1-专业版 2-旗舰版）',
+    toLevel    INT NOT NULL COMMENT '目标等级',
+    costPoints INT NOT NULL COMMENT '需要的积分',
+    createTime DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间'
+) COMMENT '积分兑换规则表' COLLATE = utf8mb3_unicode_ci;
+
+
+

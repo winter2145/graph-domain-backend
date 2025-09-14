@@ -1,12 +1,11 @@
 package com.xin.graphdomainbackend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
+import com.xin.graphdomainbackend.mapper.UserFollowsMapper;
 import com.xin.graphdomainbackend.mapper.UserMapper;
 import com.xin.graphdomainbackend.model.dto.userfollows.UserFollowersQueryRequest;
 import com.xin.graphdomainbackend.model.dto.userfollows.UserFollowsAddRequest;
@@ -16,14 +15,11 @@ import com.xin.graphdomainbackend.model.entity.UserFollows;
 import com.xin.graphdomainbackend.model.vo.FollowersAndFansVO;
 import com.xin.graphdomainbackend.model.vo.UserVO;
 import com.xin.graphdomainbackend.service.UserFollowsService;
-import com.xin.graphdomainbackend.mapper.UserFollowsMapper;
 import com.xin.graphdomainbackend.service.UserService;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.CollectionUtils;
-import org.w3c.dom.stylesheets.LinkStyle;
 
 import javax.annotation.Resource;
 import java.util.*;

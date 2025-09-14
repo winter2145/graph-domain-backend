@@ -27,10 +27,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -336,6 +333,35 @@ public class SpaceUserServiceImpl extends ServiceImpl<SpaceUserMapper, SpaceUser
         spaceUser.setSpaceRole(SpaceRoleEnum.VIEWER.getValue());  // 默认设置为查看者角色
 
         return this.save(spaceUser);
+    }
+
+    @Override
+    public Map<Long, Integer> getSpaceMemberCount(List<Long> spaceIds) {
+
+        // 过滤违法的spaceId
+        List<Long> spaceIdList = spaceIds.stream()
+                .filter(space -> space > 0)
+                .collect(Collectors.toList());
+
+        // 查询空间用户对象
+        LambdaQueryWrapper<SpaceUser> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.in(SpaceUser::getSpaceId, spaceIdList);
+        List<SpaceUser> spaceUsers = this.baseMapper.selectList(lambdaQueryWrapper);
+
+        // 1. 按 spaceId 分组，把 userId 收集成 Set（去重）
+        Map<Long, Set<Long>> spaceIdToUsers = spaceUsers.stream()
+                .collect(Collectors.groupingBy(
+                        SpaceUser::getSpaceId,
+                        Collectors.mapping(SpaceUser::getUserId, Collectors.toSet())
+                ));
+
+        // 2. 再把每个 spaceId 的 Set 转换成数量
+        Map<Long, Integer> spaceIdToUserCount = new HashMap<>();
+        for (Map.Entry<Long, Set<Long>> entry : spaceIdToUsers.entrySet()) {
+            spaceIdToUserCount.put(entry.getKey(), entry.getValue().size());
+        }
+
+        return spaceIdToUserCount;
     }
 
 }

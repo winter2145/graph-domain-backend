@@ -13,6 +13,7 @@ import com.xin.graphdomainbackend.model.vo.UserVO;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Map;
 
 /**
 * @author Administrator
@@ -91,5 +92,11 @@ public interface SpaceUserService extends IService<SpaceUser> {
      * @param loginUser 当前登录用户
      */
     boolean joinSpace(SpaceUserJoinRequest spaceUserJoinRequest, User loginUser);
+
+    /**
+     * 批量获取空间内成员数量
+     * @param spaceIds 空间id 列表
+     */
+    Map<Long, Integer> getSpaceMemberCount(List<Long> spaceIds);
 
 }
