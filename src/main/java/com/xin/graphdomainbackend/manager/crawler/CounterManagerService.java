@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Service
-public class CounterManager {
+public class CounterManagerService {
 
     @Resource
     private RedissonClient redissonClient;

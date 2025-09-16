@@ -6,6 +6,7 @@ import com.xin.graphdomainbackend.annotation.AuthCheck;
 import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.model.dto.PageRequest;
+import com.xin.graphdomainbackend.model.dto.category.CategoryQueryRequest;
 import com.xin.graphdomainbackend.model.entity.Category;
 import com.xin.graphdomainbackend.model.vo.CategoryVO;
 import com.xin.graphdomainbackend.service.CategoryService;
@@ -27,8 +28,8 @@ public class CategoryController {
      */
     @PostMapping("/list/page/vo")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<Page<CategoryVO>> listCategoryVO(PageRequest pageRequest) {
-        Page<CategoryVO> categoryVOByPage = categoryService.getCategoryVOByPage(pageRequest);
+    public BaseResponse<Page<CategoryVO>> listCategoryVO(CategoryQueryRequest categoryQueryRequest) {
+        Page<CategoryVO> categoryVOByPage = categoryService.getCategoryVOByPage(categoryQueryRequest);
 
         return ResultUtils.success(categoryVOByPage);
     }

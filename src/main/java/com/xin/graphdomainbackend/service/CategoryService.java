@@ -2,6 +2,7 @@ package com.xin.graphdomainbackend.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xin.graphdomainbackend.model.dto.PageRequest;
+import com.xin.graphdomainbackend.model.dto.category.CategoryQueryRequest;
 import com.xin.graphdomainbackend.model.entity.Category;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.xin.graphdomainbackend.model.vo.CategoryVO;
@@ -23,7 +24,7 @@ public interface CategoryService extends IService<Category> {
     /**
      * 分页获取 分类
      */
-    Page<CategoryVO> getCategoryVOByPage(PageRequest pageRequest);
+    Page<CategoryVO> getCategoryVOByPage(CategoryQueryRequest categoryQueryRequest);
 
     /**
      * 分类列表脱敏

@@ -142,4 +142,13 @@ public interface UserService extends IService<User> {
      * @param request http请求
      */
     String uploadAvatar(MultipartFile multipartFile, Long id, HttpServletRequest request);
+
+    /**
+     * 封禁/解禁用户
+     * @param userId 目标用户id
+     * @param isUnban true-解禁，false-封禁
+     * @param admin 执行操作的管理员
+     * @return 是否操作成功
+     */
+    boolean banOrUnbanUser(Long userId, Boolean isUnban, User admin);
 }

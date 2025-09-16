@@ -12,6 +12,7 @@ import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.config.MailSendConfig;
+import com.xin.graphdomainbackend.constant.CrawlerConstant;
 import com.xin.graphdomainbackend.constant.EncryptConstant;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.esdao.EsUserDao;
@@ -577,6 +578,51 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
 
         return user.getUserAvatar();
+    }
+
+    @Override
+    public boolean banOrUnbanUser(Long userId, Boolean isUnban, User admin) {
+        // 1. 校验参数
+        if (userId == null || userId <= 0 || isUnban == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        // 2. 校验管理员权限
+        if (!UserConstant.ADMIN_ROLE.equals(admin.getUserRole())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "非管理员不能执行此操作");
+        }
+
+        // 3. 获取目标用户信息
+        User targetUser = this.getById(userId);
+        if (targetUser == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+        }
+
+        // 4. 检查当前状态是否需要变更
+        boolean isBanned = UserConstant.BAN_ROLE.equals(targetUser.getUserRole());
+        if (isUnban == isBanned) {
+            // 5. 更新用户角色
+            User updateUser = new User();
+            updateUser.setId(userId);
+            // true 解禁，false 封禁
+            updateUser.setUserRole(isUnban ? UserConstant.DEFAULT_ROLE : UserConstant.BAN_ROLE);
+            updateUser.setUpdateTime(new Date());
+            boolean result = this.updateById(updateUser);
+
+            if (result) {
+                // 6. 记录操作日志
+                log.info("管理员[{}]{}用户[{}]",
+                        admin.getUserAccount(),
+                        isUnban ? "解封" : "封禁",
+                        targetUser.getUserAccount());
+            }
+            return result;
+        } else {
+            // 状态已经是目标状态
+            String operation = isUnban ? "解封" : "封禁";
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,
+                    String.format("该用户当前%s不需要%s", isUnban ? "未被封禁" : "已被封禁", operation));
+        }
     }
 
 }

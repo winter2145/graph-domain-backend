@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.model.dto.PageRequest;
+import com.xin.graphdomainbackend.model.dto.category.CategoryQueryRequest;
 import com.xin.graphdomainbackend.model.entity.Category;
 import com.xin.graphdomainbackend.model.vo.CategoryVO;
 import com.xin.graphdomainbackend.service.CategoryService;
@@ -35,14 +36,19 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category>
     }
 
     @Override
-    public Page<CategoryVO> getCategoryVOByPage(PageRequest pageRequest) {
+    public Page<CategoryVO> getCategoryVOByPage(CategoryQueryRequest categoryQueryRequest) {
         // 校验参数
-        ThrowUtils.throwIf(pageRequest == null, ErrorCode.PARAMS_ERROR);
-        long current = pageRequest.getCurrent();
-        long pageSize = pageRequest.getPageSize();
+        ThrowUtils.throwIf(categoryQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        long current = categoryQueryRequest.getCurrent();
+        long pageSize = categoryQueryRequest.getPageSize();
+        String categoryName = categoryQueryRequest.getCategoryName();
+
+        LambdaQueryWrapper<Category> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        // 分类名字不为空，添加分类条件
+        lambdaQueryWrapper.eq(StringUtils.isNotBlank(categoryName), Category::getCategoryName, categoryName);
 
         // 创建与数据库查询到的category一样大的空分页
-        Page<Category> categoryPage = this.page(new Page<>(current, pageSize));
+        Page<Category> categoryPage = this.page(new Page<>(current, pageSize), lambdaQueryWrapper);
         Page<CategoryVO> categoryPageVO = new Page<>(current, pageSize, categoryPage.getTotal());
         List<Category> categories = categoryPage.getRecords();
 

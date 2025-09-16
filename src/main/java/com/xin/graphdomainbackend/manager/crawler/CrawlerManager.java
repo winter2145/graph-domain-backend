@@ -36,7 +36,7 @@ public class CrawlerManager {
     private StringRedisTemplate stringRedisTemplate;
 
     @Resource
-    private CounterManager counterManager;
+    private CounterManagerService counterManagerService;
 
     @Resource
     private MailSendConfig emailSenderUtil;
@@ -63,8 +63,8 @@ public class CrawlerManager {
             key = String.format("%s:%s",CrawlerConstant.IP_KEY, identifier);
         }
 
-        // 统计2分钟内的访问次数(120秒后过期)
-        long count = counterManager.incrAndGetCounter(key, 2, TimeUnit.MINUTES, CrawlerConstant.EXPIRE_TIME);
+        // 统计2分钟内的访问次数(150秒后过期)
+        long count = counterManagerService.incrAndGetCounter(key, 2, TimeUnit.MINUTES, CrawlerConstant.EXPIRE_TIME);
 
         if (count > banCount) { // 禁用处理
             if (loginUser != null) {
@@ -88,7 +88,7 @@ public class CrawlerManager {
 
                 throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "访问次数过多，已被封号");
             } else {
-                // 对于未登录用户，封禁ip
+                // 对于未登录用户，封禁ip，24h
                 banIp(identifier);
                 throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "访问次数过多，IP 已被封禁");
             }
@@ -165,7 +165,7 @@ public class CrawlerManager {
     }
 
     /**
-     * 解封用户
+     * 解封Ip
      */
     private void unblock(String ip) {
         String banKey = String.format("%s:%s", CrawlerConstant.BAN_IP_KEY, ip);

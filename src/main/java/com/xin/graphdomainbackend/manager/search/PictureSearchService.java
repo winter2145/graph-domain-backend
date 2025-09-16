@@ -1,6 +1,5 @@
 package com.xin.graphdomainbackend.manager.search;
 
-import cn.hutool.json.JSONUtil;
 import com.xin.graphdomainbackend.constant.SearchTypeConstant;
 import com.xin.graphdomainbackend.model.dto.search.SearchRequest;
 import com.xin.graphdomainbackend.model.entity.Picture;
@@ -19,13 +18,14 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@Component("picture")
+@Service("picture")
 public class PictureSearchService extends SearchTemplate<PictureVO>{
 
     @Resource

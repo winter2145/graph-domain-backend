@@ -279,4 +279,22 @@ public class UserController {
         List<Integer> userSignInRecord = signInService.getUserSignInRecord(loginUser.getId(), year);
         return ResultUtils.success(userSignInRecord);
     }
+
+    /**
+     * 用户封禁/解禁（仅管理员）
+     */
+    @PostMapping("/ban")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> banOrUnbanUser(@RequestBody UserUnbanRequest request, HttpServletRequest httpRequest) {
+        if (request == null || request.getUserId() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        // 获取管理员信息
+        User admin = userService.getLoginUser(httpRequest);
+
+        boolean result = userService.banOrUnbanUser(request.getUserId(), request.getIsUnban(), admin);
+        return ResultUtils.success(result);
+    }
+
 }

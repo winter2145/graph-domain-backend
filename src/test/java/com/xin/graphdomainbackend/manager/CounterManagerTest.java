@@ -1,6 +1,6 @@
 package com.xin.graphdomainbackend.manager;
 
-import com.xin.graphdomainbackend.manager.crawler.CounterManager;
+import com.xin.graphdomainbackend.manager.crawler.CounterManagerService;
 import org.junit.jupiter.api.Test;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,10 +9,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
-class CounterManagerIntegrationTest {
+class CounterManagerServiceIntegrationTest {
 
     @Autowired
-    private CounterManager counterManager;
+    private CounterManagerService counterManagerService;
 
     @Autowired
     private RedissonClient redissonClient;
@@ -25,9 +25,9 @@ class CounterManagerIntegrationTest {
         redissonClient.getKeys().deleteByPattern(key + "*");
 
         // 连续增加三次
-        long count1 = counterManager.incrAndGetCounter(key);
-        long count2 = counterManager.incrAndGetCounter(key);
-        long count3 = counterManager.incrAndGetCounter(key);
+        long count1 = counterManagerService.incrAndGetCounter(key);
+        long count2 = counterManagerService.incrAndGetCounter(key);
+        long count3 = counterManagerService.incrAndGetCounter(key);
 
         System.out.println("Counts: " + count1 + ", " + count2 + ", " + count3);
 

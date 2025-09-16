@@ -1,11 +1,13 @@
 package com.xin.graphdomainbackend.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.xin.graphdomainbackend.exception.BusinessException;
 import com.xin.graphdomainbackend.exception.ErrorCode;
 import com.xin.graphdomainbackend.mapper.UserPointsAccountMapper;
 import com.xin.graphdomainbackend.model.dto.PageRequest;
+import com.xin.graphdomainbackend.model.dto.points.PointQueryRequest;
 import com.xin.graphdomainbackend.model.entity.UserPointsAccount;
 import com.xin.graphdomainbackend.model.entity.UserPointsLog;
 import com.xin.graphdomainbackend.model.enums.PointsChangeTypeEnum;
@@ -14,6 +16,7 @@ import com.xin.graphdomainbackend.service.PointsLogService;
 import com.xin.graphdomainbackend.service.PointsService;
 import com.xin.graphdomainbackend.utils.ThrowUtils;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.lucene.search.similarities.Lambda;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -125,14 +128,18 @@ public class PointsServiceImpl extends ServiceImpl<UserPointsAccountMapper, User
     }
 
     @Override
-    public Page<PointsInfoVO> getPointsInfoVOByPage(PageRequest pageRequest) {
+    public Page<PointsInfoVO> getPointsInfoVOByPage(PointQueryRequest pointQueryRequest) {
         // 校验参数
-        ThrowUtils.throwIf(pageRequest == null, ErrorCode.PARAMS_ERROR);
-        long current = pageRequest.getCurrent();
-        long pageSize = pageRequest.getPageSize();
+        ThrowUtils.throwIf(pointQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        long current = pointQueryRequest.getCurrent();
+        long pageSize = pointQueryRequest.getPageSize();
+        Long userId = pointQueryRequest.getUserId();
+
+        LambdaQueryWrapper<UserPointsAccount> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(userId != null, UserPointsAccount::getUserId, userId);
 
         // 创建与数据库查询到的userPointsAccount一样大的分页
-        Page<UserPointsAccount> pointsAccountPage = this.page(new Page<>(current, pageSize));
+        Page<UserPointsAccount> pointsAccountPage = this.page(new Page<>(current, pageSize), lambdaQueryWrapper);
         Page<PointsInfoVO> pointsInfoVOPage = new Page<>(current, pageSize, pointsAccountPage.getTotal());
         List<UserPointsAccount> pointsAccounts = pointsAccountPage.getRecords();
 

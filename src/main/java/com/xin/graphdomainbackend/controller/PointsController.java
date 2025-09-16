@@ -6,6 +6,7 @@ import com.xin.graphdomainbackend.annotation.LoginCheck;
 import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.constant.UserConstant;
 import com.xin.graphdomainbackend.model.dto.PageRequest;
+import com.xin.graphdomainbackend.model.dto.points.PointQueryRequest;
 import com.xin.graphdomainbackend.model.entity.UserPointsAccount;
 import com.xin.graphdomainbackend.model.vo.PointsInfoVO;
 import com.xin.graphdomainbackend.model.vo.PointsLogVO;
@@ -47,8 +48,8 @@ public class PointsController {
     //分页查询所有人的积分列表（管理员）
     @PostMapping("/list/page/vo")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<Page<PointsInfoVO>> getPointsInfoList(PageRequest pageRequest) {
-        Page<PointsInfoVO> pointsInfoVOByPage = pointsService.getPointsInfoVOByPage(pageRequest);
+    public BaseResponse<Page<PointsInfoVO>> getPointsInfoList(PointQueryRequest pointQueryRequest) {
+        Page<PointsInfoVO> pointsInfoVOByPage = pointsService.getPointsInfoVOByPage(pointQueryRequest);
 
         return ResultUtils.success(pointsInfoVOByPage);
     }

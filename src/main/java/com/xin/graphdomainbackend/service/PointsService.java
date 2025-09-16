@@ -3,6 +3,7 @@ package com.xin.graphdomainbackend.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.xin.graphdomainbackend.model.dto.PageRequest;
+import com.xin.graphdomainbackend.model.dto.points.PointQueryRequest;
 import com.xin.graphdomainbackend.model.entity.UserPointsAccount;
 import com.xin.graphdomainbackend.model.vo.PointsInfoVO;
 
@@ -43,5 +44,5 @@ public interface PointsService extends IService<UserPointsAccount> {
     /**
      * 分页获取所有人积分（管理员）
      */
-    Page<PointsInfoVO> getPointsInfoVOByPage(PageRequest pageRequest);
+    Page<PointsInfoVO> getPointsInfoVOByPage(PointQueryRequest pointQueryRequest);
 }
