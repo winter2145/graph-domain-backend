@@ -67,6 +67,7 @@ public abstract class PictureUploadTemplate {
             ProcessResults processResults = putObjectResult.getCiUploadResult().getProcessResults();
             List<CIObject> objectList = processResults.getObjectList();
 
+
             // 7. 处理webp和缩略图
             if (CollUtil.isNotEmpty(objectList)) {
                 // 获取压缩之后得到的文件信息
@@ -78,7 +79,9 @@ public abstract class PictureUploadTemplate {
                     thumbnailCiObject = objectList.get(1);
                 }
                 // 封装结果（传入原图路径 uploadPath）
-                return buildResult(originalFilename, uploadPath, compressedCiObject, thumbnailCiObject, imageInfo);
+                UploadPictureResult uploadPictureResult = buildResult(originalFilename, uploadPath, compressedCiObject, thumbnailCiObject, imageInfo);
+                uploadPictureResult.setPicSize(FileUtil.size(file)); // 图片大小一直为原图大小
+                return uploadPictureResult;
             }
 
             // 未生成 WebP 和缩略图时，直接返回原图信息
@@ -138,7 +141,7 @@ public abstract class PictureUploadTemplate {
         // 设置缩略图地址
         uploadPictureResult.setThumbnailUrl(cosClientConfig.getHost() + "/" + thumbnailCiObject.getKey());
         uploadPictureResult.setPicName(FileUtil.mainName(originalFilename));
-        uploadPictureResult.setPicSize(compressedCiObject.getSize().longValue());
+        // uploadPictureResult.setPicSize(compressedCiObject.getSize().longValue());
         uploadPictureResult.setPicWidth(picWidth);
         uploadPictureResult.setPicHeight(picHeight);
         uploadPictureResult.setPicScale(picScale);

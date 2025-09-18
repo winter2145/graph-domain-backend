@@ -103,6 +103,11 @@ public class PictureVO implements Serializable {
     private String thumbnailUrl;
 
     /**
+     * webp url
+     */
+    private String webpUrl;
+
+    /**
      * 空间 id（为空表示公共空间）
      */
     private Long spaceId;

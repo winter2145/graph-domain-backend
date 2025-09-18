@@ -46,17 +46,19 @@ public class SpaceAnalyzeServiceImpl extends ServiceImpl<SpaceMapper, Space>
     public void checkAnalyzeSpaceAuth(SpaceAnalyzeRequest spaceAnalyzeRequest, User loginUser) {
         boolean queryPublic = spaceAnalyzeRequest.isQueryPublic();
         boolean queryAll = spaceAnalyzeRequest.isQueryAll();
-        // 全空间分析或者公共图库权限校验：仅管理员可访问
-        if (queryPublic || queryAll) {
-            boolean admin = userService.isAdmin(loginUser);
-            ThrowUtils.throwIf(!admin, ErrorCode.NO_AUTH_ERROR);
+
+        boolean isAdmin = userService.isAdmin(loginUser);
+        if (queryPublic || queryAll) {         // 全空间分析或者公共图库权限校验：仅管理员可访问
+            ThrowUtils.throwIf(!isAdmin, ErrorCode.NO_AUTH_ERROR);
         } else {
-            // 分析特定空间，仅本人可以访问
+            // 分析特定空间，空间管理员与系统管理员可以访问
             Long spaceId = spaceAnalyzeRequest.getSpaceId();
             ThrowUtils.throwIf(spaceId == null, ErrorCode.PARAMS_ERROR);
             Space space = this.getById(spaceId);
             ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR, "空间不存在");
-            spaceService.checkPrivateSpaceAuth(loginUser, space);
+            if (!loginUser.getId().equals(space.getUserId()) && !isAdmin) {
+                throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+            }
         }
     }
 
@@ -161,7 +163,10 @@ public class SpaceAnalyzeServiceImpl extends ServiceImpl<SpaceMapper, Space>
                 .selectMaps(queryWrapper)
                 .stream()
                 .map(obj -> {
-                    String category = (String) obj.get("category");
+                    String category = Optional.ofNullable(obj.get("category"))
+                            .map(Object::toString)
+                            .orElse("未分类");
+
                     Long count = Optional
                             .ofNullable(obj.get("count"))
                             .map(o -> ((Number) o).longValue())
@@ -188,14 +193,18 @@ public class SpaceAnalyzeServiceImpl extends ServiceImpl<SpaceMapper, Space>
         queryWrapper.select("tags");
         fillAnalyzeQueryWrapper(spaceTagAnalyzeRequest, queryWrapper);
 
-        // 查询数据库,得到["java","python"]
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        // 查询数据库,得到[["夏天","测试3"], Null]
         List<Object> tagObjList = pictureService.getBaseMapper().selectObjs(queryWrapper);
         // 统计每个标签的个数
         Map<String, Long> tagMap = tagObjList.stream()
-                .map(Object::toString) // 转为"[\"java\",\"python\"]"
+                .filter(Objects::nonNull) // 过滤 null
+                .map(Object::toString)    // 转为["[\"夏天\",\"测试3\"]"]
+                .filter(str -> !str.trim().isEmpty()) // 过滤空字符串
                 .map(tagStr -> { // JSON 字符串 解析成 Java 对象
                     try {
-                        return new ObjectMapper().readValue(tagStr, new TypeReference<List<String>>() {});
+                        return objectMapper.readValue(tagStr, new TypeReference<List<String>>() {});
                     } catch (JsonProcessingException e) {
                         return Collections.<String>emptyList();
                     }
@@ -261,7 +270,7 @@ public class SpaceAnalyzeServiceImpl extends ServiceImpl<SpaceMapper, Space>
         fillAnalyzeQueryWrapper(userAnalyzeRequest, queryWrapper);
 
         Long userId = userAnalyzeRequest.getUserId();
-        queryWrapper.eq(ObjUtil.isNull(userId), "userId", userId);
+        queryWrapper.eq(ObjUtil.isNotNull(userId), "userId", userId);
         // 按年、月、日
         String timeDimension = userAnalyzeRequest.getTimeDimension();
         switch (timeDimension) {
