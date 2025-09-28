@@ -1,0 +1,81 @@
+package com.xin.graphdomainbackend.common.aop.aspect;
+
+import com.xin.graphdomainbackend.common.aop.annotation.AuthCheck;
+import com.xin.graphdomainbackend.common.exception.BusinessException;
+import com.xin.graphdomainbackend.common.exception.ErrorCode;
+import com.xin.graphdomainbackend.user.dao.entity.User;
+import com.xin.graphdomainbackend.user.enums.UserRoleEnum;
+import com.xin.graphdomainbackend.user.service.UserService;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import java.util.concurrent.TimeUnit;
+
+/**
+ * 认证授权切面类
+ *
+ * 主要功能：
+ * 1. 拦截带有 @AuthCheck 注解的方法调用
+ * 2. 校验用户角色权限是否符合要求
+ * 3. 刷新用户在线状态
+ */
+
+@Aspect
+@Component
+public class AuthAspect {
+
+    @Resource
+    private UserService userService;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
+    /**
+     * 权限校验拦截器（基于注解 @AuthCheck）
+     * 使用 Spring AOP 的 @Around 注解实现环绕通知
+     */
+    @Around("@annotation(authCheck)") // 拦截所有带有 @AuthCheck 注解的方法
+    public Object doInterceptor(ProceedingJoinPoint joinPoint, AuthCheck authCheck) throws Throwable {
+        // 获取注解参数
+        String mustRole = authCheck.mustRole();
+
+        // 获取当前请求对象
+        RequestAttributes requestAttributes = RequestContextHolder.currentRequestAttributes();
+
+        // 转换为HttpServletRequest对象
+        HttpServletRequest request = ((ServletRequestAttributes)requestAttributes).getRequest();
+
+        // 解析目标权限情况
+        UserRoleEnum targetUserEnum = UserRoleEnum.getUser(mustRole);
+
+        // 如果注解未指定权限要求（mustRole 为空），直接放行
+        if (targetUserEnum == null) {
+            return joinPoint.proceed();// 执行原方法
+        }
+
+        // 检查用户登录状态
+        User loginUser = userService.getLoginUser(request);
+
+        UserRoleEnum  loginUserEnum= UserRoleEnum.getUser(loginUser.getUserRole());
+
+        if (loginUser == null || targetUserEnum != loginUserEnum) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
+
+        // 通过校验,放行
+        // 刷新在线状态
+        if (loginUser != null && loginUser.getId() != null) {
+            stringRedisTemplate.expire("online:" + loginUser.getId(), 30, TimeUnit.MINUTES);
+        }
+        return joinPoint.proceed();
+
+    }
+}

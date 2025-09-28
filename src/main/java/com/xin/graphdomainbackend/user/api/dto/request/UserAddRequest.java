@@ -1,0 +1,30 @@
+package com.xin.graphdomainbackend.user.api.dto.request;
+
+import lombok.Data;
+
+import java.io.Serializable;
+
+/**
+ * 用户增加请求
+ */
+@Data
+public class UserAddRequest implements Serializable {
+
+    private static final long serialVersionUID = -7715941507988530871L;
+
+    // 用户昵称
+    private String userName;
+
+    // 用户账号
+    private String userAccount;
+
+    // 用户头像
+    private String userAvatar;
+
+    // 用户简介
+    private String userProfile;
+
+    // 用户角色：user, admin
+    private String userRole;
+
+}

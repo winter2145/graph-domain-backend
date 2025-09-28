@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xin.graphdomainbackend.points.dao.mapper.UserPointsLogMapper">
+
+    <resultMap id="BaseResultMap" type="com.xin.graphdomainbackend.points.dao.entity.UserPointsLog">
+            <id property="id" column="id" jdbcType="BIGINT"/>
+            <result property="userId" column="userId" jdbcType="BIGINT"/>
+            <result property="changeType" column="changeType" jdbcType="TINYINT"/>
+            <result property="changePoints" column="changePoints" jdbcType="INTEGER"/>
+            <result property="beforePoints" column="beforePoints" jdbcType="INTEGER"/>
+            <result property="afterPoints" column="afterPoints" jdbcType="INTEGER"/>
+            <result property="bizId" column="bizId" jdbcType="BIGINT"/>
+            <result property="remark" column="remark" jdbcType="VARCHAR"/>
+            <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,userId,changeType,
+        changePoints,beforePoints,afterPoints,
+        bizId,remark,createTime
+    </sql>
+</mapper>
