@@ -1,0 +1,353 @@
+package com.xin.graphdomainbackend.like.service.impl;
+
+import cn.hutool.core.collection.CollUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.xin.graphdomainbackend.comments.api.dto.vo.CommentUserVO;
+import com.xin.graphdomainbackend.comments.api.dto.vo.CommentsVO;
+import com.xin.graphdomainbackend.comments.dao.entity.Comments;
+import com.xin.graphdomainbackend.comments.service.CommentsService;
+import com.xin.graphdomainbackend.common.constant.TargetTypeConstant;
+import com.xin.graphdomainbackend.common.enums.MessageSourceEnum;
+import com.xin.graphdomainbackend.common.exception.ErrorCode;
+import com.xin.graphdomainbackend.common.util.ThrowUtils;
+import com.xin.graphdomainbackend.like.api.dto.request.LikeQueryRequest;
+import com.xin.graphdomainbackend.like.api.dto.request.LikeRequest;
+import com.xin.graphdomainbackend.like.api.dto.vo.LikeRecordVO;
+import com.xin.graphdomainbackend.like.dao.entity.LikeRecord;
+import com.xin.graphdomainbackend.like.dao.mapper.LikeRecordMapper;
+import com.xin.graphdomainbackend.like.service.LikeRecordService;
+import com.xin.graphdomainbackend.picture.api.dto.vo.PictureVO;
+import com.xin.graphdomainbackend.picture.dao.entity.Picture;
+import com.xin.graphdomainbackend.picture.dao.mapper.PictureMapper;
+import com.xin.graphdomainbackend.picture.service.PictureService;
+import com.xin.graphdomainbackend.user.api.dto.vo.UserVO;
+import com.xin.graphdomainbackend.user.dao.entity.User;
+import com.xin.graphdomainbackend.user.service.UserService;
+import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+/**
+* @author Administrator
+* @description 针对表【like_record】的数据库操作Service实现
+* @createDate 2025-07-29 20:32:56
+*/
+@Service
+@Slf4j
+public class LikeRecordServiceImpl extends ServiceImpl<LikeRecordMapper, LikeRecord>
+    implements LikeRecordService {
+
+    @Resource
+    private PictureService pictureService;
+
+    @Resource
+    private PictureMapper pictureMapper;
+
+    @Resource
+    private UserService userService;
+
+    @Resource
+    private CommentsService commentsService;
+
+    @Override
+    @Async("asyncExecutor")
+    @Transactional(rollbackFor = Exception.class)
+    public CompletableFuture<Boolean> doLike(LikeRequest likeRequest, Long userId) {
+        try {
+            // 参数校验
+            ThrowUtils.throwIf(likeRequest == null, ErrorCode.PARAMS_ERROR);
+
+            Long targetId = likeRequest.getTargetId();
+            Integer targetType = likeRequest.getTargetType();
+            Integer isLiked = likeRequest.getIsLiked();
+
+            // 参数校验
+            if (targetId == null || targetType == null || isLiked == null || userId == null) {
+                log.error("Invalid parameters: targetId={}, targetType={}, isLiked={}, userId={}",
+                        targetId, targetType, isLiked, userId);
+                return CompletableFuture.completedFuture(false);
+            }
+            // 获取目标内容 所属用户ID
+            Picture targetPicture = pictureService.getById(targetId);
+            ThrowUtils.throwIf(targetPicture == null, ErrorCode.NOT_FOUND_ERROR);
+            Long targetUserId = targetPicture.getUserId();
+
+            Boolean success = dealLikeOrDislike(userId, targetId, targetType, isLiked, targetUserId);
+
+            // 更新图片 的点赞数量
+            if (success) {
+                updateLikeCount(targetId, targetType, isLiked == 1 ? 1 : -1);
+            }
+            return CompletableFuture.completedFuture(true);
+        } catch (Exception e) {
+            return CompletableFuture.completedFuture(false);
+        }
+    }
+
+    public Boolean dealLikeOrDislike(Long userId, Long targetId, Integer targetType, Integer newStatus, Long targetUserId) {
+        // 查询当前点赞状态
+        LikeRecord oldLikeRecord = this.lambdaQuery()
+                .eq(LikeRecord::getUserId, userId)
+                .eq(LikeRecord::getTargetId, targetId)
+                .eq(LikeRecord::getTargetType, targetType)
+                .one();
+
+        boolean result = false;
+
+        // 处理点赞记录
+        if (oldLikeRecord == null) {
+            // 首次操作
+            LikeRecord likeRecord = new LikeRecord();
+            likeRecord.setUserId(userId);
+            likeRecord.setTargetId(targetId);
+            likeRecord.setTargetType(targetType);
+            likeRecord.setTargetUserId(targetUserId);
+            likeRecord.setLikeStatus(newStatus);
+            likeRecord.setFirstLikeTime(new Date());
+            likeRecord.setLastLikeTime(new Date());
+            likeRecord.setIsRead(0); // 未读状态
+            result = this.save(likeRecord);
+        } else {
+            // 更新现有记录
+            if (!newStatus.equals(oldLikeRecord.getLikeStatus())) {
+                // 状态发生变化，更新记录
+                oldLikeRecord.setLikeStatus(newStatus);
+                oldLikeRecord.setLastLikeTime(new Date());
+                oldLikeRecord.setTargetUserId(targetUserId);
+
+                // 如果是点赞操作，设置为未读
+                if (newStatus == 1) {
+                    oldLikeRecord.setIsRead(0);
+                }
+                result = this.updateById(oldLikeRecord);
+            }
+        }
+
+        return result;
+    }
+
+    @Override
+    public Page<LikeRecordVO> getUserLikeHistory(LikeQueryRequest likeQueryRequest, String source, Long userId) {
+        ThrowUtils.throwIf(likeQueryRequest == null, ErrorCode.PARAMS_ERROR);
+
+        long current = likeQueryRequest.getCurrent();
+        int pageSize = likeQueryRequest.getPageSize();
+
+        // 创建分页对象
+        Page<LikeRecord> page = new Page<>(current, pageSize);
+
+        // 构建查询条件
+        LambdaQueryWrapper<LikeRecord> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        if (source == MessageSourceEnum.TO_ME.getValue()) {
+            lambdaQueryWrapper.eq(LikeRecord::getTargetUserId, userId) // 查询被点赞的记录
+                    .eq(LikeRecord::getLikeStatus, 1)  // 只查询点赞状态为true的记录
+                    .ne(LikeRecord::getUserId, userId); // 排除自己点赞自己的记录
+        } else if (source == MessageSourceEnum.FROM_ME.getValue()) {
+            lambdaQueryWrapper.eq(LikeRecord::getUserId, userId) // 查询我点赞的记录
+                    .eq(LikeRecord::getLikeStatus, 1);
+        }
+
+        // 处理目标类型查询
+        Integer targetType = likeQueryRequest.getTargetType();
+        if (targetType != null) {
+            lambdaQueryWrapper.eq(LikeRecord::getTargetType, targetType);
+        }
+        lambdaQueryWrapper.orderByDesc(LikeRecord::getLastLikeTime);
+
+        // 执行分页查询
+        Page<LikeRecord> likePage = this.page(page, lambdaQueryWrapper);
+
+        // 转换VO结果
+        List<LikeRecordVO> likeRecordVOS = convertToVOList(likePage.getRecords());
+
+        // 构建返回结果
+        Page<LikeRecordVO> voPage = new Page<>(likePage.getCurrent(), likePage.getSize(), likePage.getTotal());
+        voPage.setRecords(likeRecordVOS);
+
+        return voPage;
+
+    }
+
+    @Override
+    public long getUnreadLikesCount(Long userId) {
+        return this.count(new LambdaQueryWrapper<LikeRecord>()
+                .eq(LikeRecord::getTargetUserId, userId)
+                .eq(LikeRecord::getIsRead, 0)
+                .eq(LikeRecord::getLikeStatus, 1)
+                .ne(LikeRecord::getUserId, userId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void clearAllUnreadLikes(Long userId) {
+        this.lambdaUpdate().set(LikeRecord::getIsRead, 1)
+                .eq(LikeRecord::getTargetUserId, userId)
+                .eq(LikeRecord::getIsRead, 0)
+                .eq(LikeRecord::getLikeStatus, 1)
+                .update();
+    }
+
+    @Override
+    public Boolean getIsLike(Long userId, Long targetId) {
+        return this.lambdaQuery().eq(LikeRecord::getUserId, userId)
+                .eq(LikeRecord::getTargetId, targetId)
+                .eq(LikeRecord::getTargetType, TargetTypeConstant.IMAGE)
+                .eq(LikeRecord::getLikeStatus, 1)
+                .exists();
+    }
+
+    @Override
+    public List<LikeRecord> getLikeRecordsByTargetIds(Set<Long> targetIds, Integer targetType) {
+        if (targetIds == null || targetIds.isEmpty()) {
+            return Collections.emptyList(); // 避免生成 `IN ()` 的错误 SQL
+        }
+        List<LikeRecord> list = null;
+        switch (targetType) {
+            case TargetTypeConstant.IMAGE:
+                list = this.lambdaQuery()
+                        .eq(LikeRecord::getTargetType, TargetTypeConstant.IMAGE) // 确保是图片类型的点赞
+                        .eq(LikeRecord::getLikeStatus, 1) // 只查已点赞的记录
+                        .in(LikeRecord::getTargetId, targetIds) // 按目标 ID 批量查询
+                        .list();
+                break;
+            case TargetTypeConstant.COMMENT:
+                list = this.lambdaQuery()
+                        .eq(LikeRecord::getTargetType, TargetTypeConstant.COMMENT)
+                        .in(LikeRecord::getTargetId, targetIds) // 按目标 ID 批量查询
+                        .list();
+        }
+
+        return list;
+    }
+
+    private List<LikeRecordVO> convertToVOList(List<LikeRecord> likeRecords) {
+        if (CollUtil.isEmpty(likeRecords)) {
+            return Collections.emptyList();
+        }
+
+        // 1. 批量查用户
+        Set<Long> allUserIds = likeRecords.stream()
+                .map(LikeRecord::getUserId)
+                .collect(Collectors.toSet());
+
+        // 收集图片作者
+        List<Long> pictureIds = likeRecords.stream()
+                .filter(like -> like.getTargetType() == TargetTypeConstant.IMAGE)
+                .map(LikeRecord::getTargetId)
+                .collect(Collectors.toList());
+
+        Map<Long, Picture> pictureMap = pictureIds.isEmpty()
+                ? Collections.emptyMap()
+                : pictureService.listByIds(pictureIds).stream()
+                .peek(pic -> allUserIds.add(pic.getUserId()))
+                .collect(Collectors.toMap(Picture::getId, Function.identity()));
+
+        // 收集评论信息（新增）
+        List<Long> commentIds = likeRecords.stream()
+                .filter(like -> like.getTargetType() == TargetTypeConstant.COMMENT)
+                .map(LikeRecord::getTargetId)
+                .collect(Collectors.toList());
+
+        Map<Long, Comments> commentMap = commentIds.isEmpty()
+                ? Collections.emptyMap()
+                : commentsService.listByIds(commentIds).stream()
+                .peek(post -> allUserIds.add(post.getUserId()))
+                .collect(Collectors.toMap(Comments::getCommentId, Function.identity()));
+
+        // 批量查所有相关用户
+        Map<Long, UserVO> userVOMap = allUserIds.isEmpty()
+                ? Collections.emptyMap()
+                : userService.listByIds(allUserIds).stream()
+                .collect(Collectors.toMap(User::getId, userService::getUserVO));
+
+        // 2. 组装 VO
+        return likeRecords.stream().map(like -> {
+            LikeRecordVO vo = new LikeRecordVO();
+            BeanUtils.copyProperties(like, vo);
+
+            // 点赞用户
+            vo.setUser(userVOMap.get(like.getUserId()));
+
+            // 目标内容
+            switch (like.getTargetType()) {
+                case TargetTypeConstant.IMAGE: // 图片
+                    Picture picture = pictureMap.get(like.getTargetId());
+                    if (picture != null) {
+                        PictureVO pictureVO = PictureVO.objToVo(picture);
+                        pictureVO.setUser(userVOMap.get(picture.getUserId()));
+                        vo.setTarget(pictureVO);
+                    }
+                    break;
+                case TargetTypeConstant.COMMENT: // 评论
+                    Comments comments = commentMap.get(like.getTargetId());
+                    if (comments != null) {
+                        CommentsVO commentsVO = CommentsVO.objToVo(comments);
+                        UserVO userVO = userVOMap.get(comments.getUserId());
+                        CommentUserVO commentUserVO = CommentUserVO.objToCommentUserVO(userVO);
+                        commentsVO.setCommentUser(commentUserVO);
+                        vo.setTarget(commentsVO);
+                    }
+                    break;
+                default:
+                    log.error("Unsupported target type: {}", like.getTargetType());
+            }
+            return vo;
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<LikeRecordVO> getAndClearUnreadLikes(Long userId) {
+        // 获取未读点赞记录
+        LambdaQueryWrapper<LikeRecord> likeRecordQueryWrapper = new LambdaQueryWrapper<>();
+        likeRecordQueryWrapper.eq(LikeRecord::getTargetUserId, userId)
+                .eq(LikeRecord::getIsRead, 0)
+                .ne(LikeRecord::getUserId, userId)
+                .in(LikeRecord::getTargetType,  Arrays.asList(
+                        TargetTypeConstant.IMAGE,
+                        TargetTypeConstant.POST,
+                        TargetTypeConstant.SPACE,
+                        TargetTypeConstant.COMMENT
+                ))
+                .orderByDesc(LikeRecord::getLastLikeTime)
+                .last("LIMIT 50"); // 限制最多返回50条数据
+
+        List<LikeRecord> unreadLikes = this.list(likeRecordQueryWrapper);
+        if (CollUtil.isEmpty(unreadLikes)) {
+            return new ArrayList<>();
+        }
+
+        // 批量更新为已读
+        List<Long> likeIds = unreadLikes.stream()
+                .map(LikeRecord::getId)
+                .collect(Collectors.toList());
+
+        this.lambdaUpdate().set(LikeRecord::getIsRead, 1)
+                .in(LikeRecord::getId, likeIds)
+                .update();
+
+        // 返回之前未读的VO
+        return convertToVOList(unreadLikes);
+    }
+
+    private void updateLikeCount(Long targetId, Integer targetType, int delta) {
+        int updated = 0;
+        if (targetType == TargetTypeConstant.IMAGE) {
+            updated = pictureMapper.updateLikeCount(targetId, delta);
+        }
+        if (updated == 0) {
+            log.warn("点赞数 更新失败，targetId: {}", targetId);
+        }
+    }
+
+
+}

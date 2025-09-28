@@ -1,0 +1,183 @@
+package com.xin.graphdomainbackend.picture.service;
+
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.xin.graphdomainbackend.picture.api.dto.requeset.*;
+import com.xin.graphdomainbackend.picture.api.dto.vo.PictureVO;
+import com.xin.graphdomainbackend.picture.dao.entity.Picture;
+import com.xin.graphdomainbackend.user.dao.entity.User;
+import jakarta.servlet.http.HttpServletRequest;
+
+import java.util.List;
+
+/**
+* @author Administrator
+* @description 针对表【picture】的数据库操作Service
+* @createDate 2025-04-30 19:13:10
+*/
+public interface PictureService extends IService<Picture> {
+
+    /**
+     * 校验图片
+     *
+     * @param picture         图片实体
+     */
+    void validPicture(Picture picture);
+
+    /**
+     * 上传图片
+     * @param inputSource           文件输入源(图片或url)
+     * @param uploadRequest         图片上传请求参数
+     * @param loginUser             图片视图对象
+     * @return
+     */
+    PictureVO uploadPicture(Object inputSource, PictureUploadRequest uploadRequest, User loginUser);
+
+    /**
+     * 构建图片查询条件
+     *
+     * @param pictureQueryRequest   图片查询请求参数
+     * @return                      查询条件包装器
+     */
+    QueryWrapper<Picture> getQueryWrapper(PictureQueryRequest pictureQueryRequest);
+
+    /**
+     * 更新图片信息
+     *
+     * @param picture   图片实体
+     * @param loginUser             当前登录用户
+     * @return          是否更新成功
+     */
+    boolean updatePicture(Picture picture, User loginUser);
+
+    /**
+     * 根据图片 ID 删除指定图片（仅限管理员或本人）。
+     *
+     * @param id 图片主键 ID
+     * @param loginUser 当前登录用户
+     */
+    boolean deletePicture(Long id, User loginUser);
+
+    /**
+     * 清理图片文件
+     *
+     * @param oldPicture 查询到的图片对象
+     */
+    void clearPictureFile(Picture oldPicture);
+
+    /**
+     * 获取图片视图对象
+     *
+     * @param picture   图片实体
+     * @return          图片视图对象
+     */
+    PictureVO getPictureVO(Picture picture);
+
+    /**
+     * 获取阅览量
+     */
+    void incrementViewCount(Long pictureId);
+
+    /**
+     * 获取图片视图对象列表
+     *
+     * @param pictureList   图片实体列表
+     * @return              图片视图对象列表
+     */
+    List<PictureVO> getPictureVOList(List<Picture> pictureList);
+
+    /**
+     * 获取图片视图对象列表 (分页)
+     *
+     * @param pictureQueryRequest   图片查询请求
+     * @return              图片视图对象列表分页版
+     */
+    Page<PictureVO> getPictureVOByPage(PictureQueryRequest pictureQueryRequest);
+
+    /**
+     * 分页获取图片列表，根据查询条件筛选。
+     *
+     * @param pictureQueryRequest 图片查询请求参数
+     * @return 分页结果，包含图片列表
+     */
+    Page<Picture> getPictureByPage(PictureQueryRequest pictureQueryRequest);
+
+    /**
+     * 编辑图片信息（如标题、描述等）。
+     *
+     * @param pictureEditRequest 图片编辑请求参数
+     * @param request HTTP 请求对象，用于鉴权或获取用户信息
+     * @return 是否编辑成功
+     */
+    boolean editPicture(PictureEditRequest pictureEditRequest, HttpServletRequest request);
+
+    /**
+     * 图片审核
+     * @param pictureReviewRequest 图片审核请求参数
+     * @param loginUser 当前登录用户
+     */
+    void doPictureReview(PictureReviewRequest pictureReviewRequest, User loginUser);
+
+    /**
+     * 批量抓取和创建图片
+     *
+     * @param uploadByBatchRequest  批量导入图片请求参数
+     * @param loginUser 当前登录用户
+     * @return 成功创建的图片数
+     */
+    Integer uploadPictureByBatch(PictureUploadByBatchRequest uploadByBatchRequest, User loginUser);
+
+    /**
+     * 分页获取图片列表，根据查询条件筛选。(带缓存)
+     *
+     * @param pictureQueryRequest 图片查询请求参数
+     * @param request     Http请求
+     * @return 分页结果，包含图片列表
+     */
+    Page<PictureVO> listPictureVOByPageWithCache(PictureQueryRequest pictureQueryRequest, HttpServletRequest request);
+
+    /**
+     * 校验空间图片的权限
+     *
+     * @param loginUser 登录用户
+     * @param picture 图片对象
+     */
+    void checkPictureAuth(User loginUser, Picture picture);
+
+    /**
+     * 根据图片主色调在指定空间中搜索图片列表。
+     *
+     * @param spaceId   空间ID，用于限定搜索范围（例如某个用户或项目的图片空间）
+     * @param picColor  目标图片主色调（十六进制颜色字符串，例如 "#aabbcc" 或 "0xAABBCC"）；
+     * @param loginUser 当前登录用户对象，用于权限验证和数据隔离
+     * @return 匹配指定主色调的图片信息列表（PictureVO），如果无匹配则返回空列表
+     */
+    List<PictureVO> searchPictureByColor(Long spaceId, String picColor, User loginUser);
+
+    /**
+     * 批量编辑图片
+     * @param pictureEditByBatchRequest 图片批量编辑请求
+     * @param loginUser 登录用户
+     */
+    boolean editPictureByBatch(PictureEditByBatchRequest pictureEditByBatchRequest, User loginUser);
+
+    /**
+     * 获取关注者们的图片
+     * @param pictureQueryRequest 图片查询请求
+     */
+    Page<PictureVO> getFollowPicture(PictureQueryRequest pictureQueryRequest);
+
+    /**
+     * 获取Top10的图片列表（带缓存）
+     * @param id 榜单类型
+     *           1 - 周榜， 2 - 月榜， 3 - 总榜
+     */
+    List<PictureVO> getTop10PictureWithCache(Long id);
+
+    /**
+     * 管理员批量处理图片
+     * @param pictureOperation 图片操作请求
+     */
+    void batchOperationPicture(PictureOperationRequest pictureOperation);
+}

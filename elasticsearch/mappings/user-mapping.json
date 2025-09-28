@@ -1,0 +1,61 @@
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "text_analyzer": {
+          "tokenizer": "ik_max_word",
+          "filter": [
+            "lowercase"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "long"
+      },
+      "userAccount": {
+        "type": "text",
+        "analyzer": "standard",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "userName": {
+        "type": "text",
+        "fields": {
+          "mix": {
+            "type": "text",
+            "analyzer": "text_analyzer"
+          },
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "userProfile": {
+        "type": "text",
+        "analyzer": "text_analyzer",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "createTime": {
+        "type": "date",
+        "format": "strict_date_time||strict_date_optional_time||epoch_millis"
+      },
+      "isDelete": {
+        "type": "integer"
+      }
+    }
+  }
+}

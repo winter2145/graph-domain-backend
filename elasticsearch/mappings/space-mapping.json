@@ -1,0 +1,44 @@
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "ik_smart": {
+          "type": "custom",
+          "tokenizer": "ik_smart",
+          "filter": ["lowercase"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "long"
+      },
+      "spaceName": {
+        "type": "text",
+        "fields": {
+          "ik": {
+            "type": "text",
+            "analyzer": "ik_smart"
+          },
+          "standard": {
+            "type": "text",
+            "analyzer": "standard"
+          }
+        }
+      },
+      "spaceType": {
+        "type": "integer"
+      },
+      "createTime": {
+        "type": "date",
+        "format": "strict_date_time||strict_date_optional_time||epoch_millis"
+      },
+      "isDelete": {
+        "type": "integer"
+      }
+    }
+  }
+}
+
