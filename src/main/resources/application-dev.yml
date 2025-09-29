@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
   servlet:
     context-path: /api
 spring:
@@ -9,8 +9,8 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/yu_picture?serverTimezone=GMT%2B8&useUnicode=true&characterEncoding=utf8&autoReconnect=true&allowMultiQueries=true
-    username: root
-    password: 123456
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
   servlet:
     multipart:
       max-file-size: 10MB
@@ -28,7 +28,7 @@ spring:
             enable: true
   # Redis配置
   redis:
-    port: 6379
+    port: ${REDIS_PORT:6379}
     host: localhost
     database: 1
   # ES 配置
@@ -36,8 +36,8 @@ spring:
     connection-timeout: 50000
     uris: ${ES_URIS:http://localhost:9200}
     socket-timeout: 60000
-    username:  # 可选，没配置就是空
-    password:  # 可选，没配置就是空
+    username: ${ES_USERNAME:}  # 可选，没配置就是空
+    password: ${ES_PASSWORD:}  # 可选，没配置就是空
 
 # mybatis-plus配置
 mybatis-plus:
