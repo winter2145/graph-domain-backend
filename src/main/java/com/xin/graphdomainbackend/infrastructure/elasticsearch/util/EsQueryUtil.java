@@ -24,7 +24,7 @@ public class EsQueryUtil {
     public static Query term(String field, Object value, float boost) {
         return new TermQuery.Builder()
                 .field(field)
-                .value(toFieldValue(value))  // ✅ 转换成 FieldValue
+                .value(toFieldValue(value))  // 转换成 FieldValue
                 .boost(boost)
                 .build()
                 ._toQuery();
@@ -67,16 +67,6 @@ public class EsQueryUtil {
 
     public static Query notExists(String field) {
         return BoolQuery.of(b -> b.mustNot(exists(field)))._toQuery();
-    }
-
-    /** range gte / lte 简化 */
-    public static Query range(String field, Object gte, Object lte) {
-        return new RangeQuery.Builder()
-                .field(field)
-                .gte(JsonData.of(gte))
-                .lte(JsonData.of(lte))
-                .build()
-                ._toQuery();
     }
 
     /** 快速生成 BoolQuery，避免 new Builder() 样板 */
