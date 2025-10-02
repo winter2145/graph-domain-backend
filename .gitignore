@@ -50,5 +50,4 @@ logs/
 
 ### 环境文件 ###
 .env
-.env.local
 
