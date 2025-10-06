@@ -42,6 +42,13 @@ spring:
     username: ${ES_USERNAME:}  # 可选，没配置就是空
     password: ${ES_PASSWORD:}  # 可选，没配置就是空
 
+  ai:
+    dashscope:
+      api-key: sk-f1deb803cef74837b3a2f8a5dc129d6f
+      image:
+        options:
+          model: qwen-image-plus      # 默认走"生成"模型
+
 # mybatis-plus配置
 mybatis-plus:
   configuration:
