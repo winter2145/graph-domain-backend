@@ -92,3 +92,4 @@ docker-compose down
 - 空间分析 (spaceAnalyze)
 - 空间用户管理 (spaceUser)
 - 分享功能 (share)
+- AI 绘图(aiDraw)
