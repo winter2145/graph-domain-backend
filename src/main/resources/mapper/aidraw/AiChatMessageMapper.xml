@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xin.graphdomainbackend.aidraw.dao.mapper.AiChatMessageMapper">
+
+    <resultMap id="BaseResultMap" type="com.xin.graphdomainbackend.aidraw.dao.entity.AiChatMessage">
+            <id property="id" column="id" jdbcType="BIGINT"/>
+            <result property="sessionId" column="sessionId" jdbcType="BIGINT"/>
+            <result property="roundId" column="roundId" jdbcType="BIGINT"/>
+            <result property="role" column="role" jdbcType="VARCHAR"/>
+            <result property="content" column="content" jdbcType="VARCHAR"/>
+            <result property="imageUrl" column="imageUrl" jdbcType="VARCHAR"/>
+            <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,sessionId,roundId,role,
+        content,imageUrl,createTime
+    </sql>
+</mapper>
