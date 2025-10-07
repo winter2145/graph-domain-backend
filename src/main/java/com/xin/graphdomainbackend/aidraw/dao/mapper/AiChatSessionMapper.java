@@ -2,6 +2,7 @@ package com.xin.graphdomainbackend.aidraw.dao.mapper;
 
 import com.xin.graphdomainbackend.aidraw.dao.entity.AiChatSession;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
 
 /**
@@ -15,7 +16,7 @@ public interface AiChatSessionMapper extends BaseMapper<AiChatSession> {
     @Update("UPDATE ai_chat_session " +
             "SET title = #{title} " +
             "WHERE id = #{sessionId}")
-    Boolean updateTitle(Long sessionId);
+    Boolean updateTitle(@Param("sessionId") Long sessionId, @Param("title") String title);
 }
 
 

@@ -1,23 +1,17 @@
 package com.xin.graphdomainbackend.infrastructure.ai.service.impl;
 
-import cn.hutool.core.bean.BeanUtil;
 import com.alibaba.cloud.ai.dashscope.image.DashScopeImageOptions;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.xin.graphdomainbackend.aidraw.api.dto.vo.AiChatMessageVO;
-import com.xin.graphdomainbackend.aidraw.api.dto.vo.AiChatSessionVO;
 import com.xin.graphdomainbackend.aidraw.dao.entity.AiChatMessage;
 import com.xin.graphdomainbackend.aidraw.dao.entity.AiChatSession;
 import com.xin.graphdomainbackend.aidraw.dao.mapper.AiChatMessageMapper;
 import com.xin.graphdomainbackend.aidraw.dao.mapper.AiChatSessionMapper;
-import com.xin.graphdomainbackend.common.exception.BusinessException;
-import com.xin.graphdomainbackend.common.exception.ErrorCode;
 import com.xin.graphdomainbackend.infrastructure.ai.constant.AiConstant;
 import com.xin.graphdomainbackend.infrastructure.ai.service.AiDrawingService;
 import com.xin.graphdomainbackend.infrastructure.cos.model.UploadPictureResult;
 import com.xin.graphdomainbackend.infrastructure.cos.upload.PictureUploadTemplate;
 import com.xin.graphdomainbackend.infrastructure.cos.upload.UrlPictureUpload;
 import jakarta.annotation.Resource;
-import jodd.util.StringUtil;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.image.ImageModel;
@@ -25,9 +19,7 @@ import org.springframework.ai.image.ImagePrompt;
 import org.springframework.ai.image.ImageResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -51,15 +43,6 @@ public class AiDrawingServiceImpl implements AiDrawingService {
     @Resource
     private AiChatMessageMapper messageMapper;
 
-
-    @Override
-    public Long createSession(String userId, String title) {
-        AiChatSession session = new AiChatSession();
-        session.setUserId(userId);
-        session.setTitle(title);
-        sessionMapper.insert(session);
-        return session.getId();
-    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -182,53 +165,6 @@ public class AiDrawingServiceImpl implements AiDrawingService {
         }
 
         return cosUrl;
-    }
-
-    @Override
-    public List<AiChatMessageVO> getSessionHistoryMessages(Long sessionId) {
-        List<AiChatMessage> aiChatMessages = messageMapper.selectList(
-                new LambdaQueryWrapper<AiChatMessage>()
-                        .eq(AiChatMessage::getSessionId, sessionId)
-                        .orderByAsc(AiChatMessage::getCreateTime)
-        );
-        if (aiChatMessages.isEmpty()) {
-            return new ArrayList<>();
-        }
-        return aiChatMessages.stream().map(aiChatMessage -> {
-            AiChatMessageVO aiChatMessageVO = new AiChatMessageVO();
-            BeanUtil.copyProperties(aiChatMessage, aiChatMessageVO);
-            if (StringUtils.hasText(aiChatMessage.getImageUrl())) {
-                aiChatMessageVO.setContent(""); // 对于有图片的返回内容，只返回图片url
-            }
-            return aiChatMessageVO;
-        }).toList();
-    }
-
-    @Override
-    public List<AiChatSessionVO> getUserSessions(String userId) {
-        List<AiChatSession> aiChatSessions = sessionMapper.selectList(
-                new LambdaQueryWrapper<AiChatSession>()
-                        .eq(AiChatSession::getUserId, userId)
-                        .orderByDesc(AiChatSession::getCreateTime)
-                        .last("LIMIT 7")
-        );
-        if (aiChatSessions.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        return aiChatSessions.stream().map(aiChatSession -> {
-            AiChatSessionVO aiChatSessionVO = new AiChatSessionVO();
-            BeanUtil.copyProperties(aiChatSession, aiChatSessionVO);
-            return aiChatSessionVO;
-        }).toList();
-    }
-
-    @Override
-    public Boolean updateSessionTitle(Long sessionId) {
-        if (sessionId <= 0) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"sessionId 不能小于等于0");
-        }
-        return sessionMapper.updateTitle(sessionId);
     }
 
     /**
