@@ -1,10 +1,14 @@
 package com.xin.graphdomainbackend.aidraw.api.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.xin.graphdomainbackend.aidraw.api.dto.request.AiDrawQueryRequest;
 import com.xin.graphdomainbackend.aidraw.api.dto.request.CreateSessionRequest;
 import com.xin.graphdomainbackend.aidraw.api.dto.request.GenerateImageRequest;
 import com.xin.graphdomainbackend.aidraw.api.dto.vo.AiChatMessageVO;
 import com.xin.graphdomainbackend.aidraw.api.dto.vo.AiChatSessionVO;
 import com.xin.graphdomainbackend.aidraw.api.dto.vo.AiGenerateImageVO;
+import com.xin.graphdomainbackend.aidraw.service.AiChatMessageService;
+import com.xin.graphdomainbackend.aidraw.service.AiChatSessionService;
 import com.xin.graphdomainbackend.common.BaseResponse;
 import com.xin.graphdomainbackend.common.aop.annotation.LoginCheck;
 import com.xin.graphdomainbackend.common.util.ResultUtils;
@@ -23,6 +27,12 @@ public class AiDrawController {
     @Resource
     private AiDrawingService drawingService;
 
+    @Resource
+    private AiChatMessageService messageService;
+
+    @Resource
+    private AiChatSessionService sessionService;
+
     /**
      * 创建会话
      */
@@ -30,7 +40,7 @@ public class AiDrawController {
     @LoginCheck
     public BaseResponse<Long> createSession(@Valid @RequestBody CreateSessionRequest createSessionRequest) {
         return ResultUtils.success(
-                drawingService.createSession(createSessionRequest.getUserId(), createSessionRequest.getTitle())
+                sessionService.createSession(createSessionRequest.getUserId(), createSessionRequest.getTitle())
         );
     }
 
@@ -79,7 +89,19 @@ public class AiDrawController {
     @GetMapping("/session/{sessionId}/history_messages")
     @LoginCheck
     public BaseResponse<List<AiChatMessageVO>> getMessages(@PathVariable Long sessionId) {
-        return ResultUtils.success(drawingService.getSessionHistoryMessages(sessionId));
+        AiDrawQueryRequest aiDrawQueryRequest = new AiDrawQueryRequest();
+        aiDrawQueryRequest.setSessionId(sessionId);
+        return ResultUtils.success(messageService.getSessionHistoryMessages(sessionId));
+    }
+
+    /**
+     * 获取会话历史消息 分页
+     */
+    @PostMapping("/session/{sessionId}/history_messages")
+    @LoginCheck
+    public BaseResponse<Page<AiChatMessageVO>> getMessagesByPage(@PathVariable Long sessionId,@RequestBody AiDrawQueryRequest aiDrawQueryRequest) {
+        aiDrawQueryRequest.setSessionId(sessionId);
+        return ResultUtils.success(messageService.getSessionsHistoryByPage(aiDrawQueryRequest));
     }
 
     /**
@@ -88,7 +110,7 @@ public class AiDrawController {
     @GetMapping("/sessions")
     @LoginCheck
     public BaseResponse<List<AiChatSessionVO>> getUserSessions(@RequestParam String userId) {
-        return ResultUtils.success(drawingService.getUserSessions(userId));
+        return ResultUtils.success(sessionService.getUserSessions(userId));
     }
 
     /**
@@ -96,7 +118,7 @@ public class AiDrawController {
      */
     @PostMapping("/session/{sessionId}/update_title")
     @LoginCheck
-    public BaseResponse<Boolean> updateSessionTitle(@PathVariable Long sessionId) {
-        return ResultUtils.success(drawingService.updateSessionTitle(sessionId));
+    public BaseResponse<Boolean> updateSessionTitle(@PathVariable Long sessionId, @RequestParam String title) {
+        return ResultUtils.success(sessionService.updateSessionTitle(sessionId, title));
     }
 }
