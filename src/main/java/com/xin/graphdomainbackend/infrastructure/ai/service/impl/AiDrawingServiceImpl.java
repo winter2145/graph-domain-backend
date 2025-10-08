@@ -155,8 +155,8 @@ public class AiDrawingServiceImpl implements AiDrawingService {
         // 上传图片得到图片信息
         PictureUploadTemplate pictureUploadTemplate = urlPictureUpload;
         UploadPictureResult uploadPictureResult = pictureUploadTemplate.uploadPictureResult(tmpImageUrl, uploadPathPrefix);
-        String cosUrl = uploadPictureResult.getUrl().isEmpty() ?
-                uploadPictureResult.getWebpUrl() : uploadPictureResult.getUrl();
+        String cosUrl = uploadPictureResult.getWebpUrl().isEmpty() ?
+                uploadPictureResult.getUrl() : uploadPictureResult.getWebpUrl();
 
         // 6. 更新 assistant 记录(把图片 URL、优化后的content)
         Boolean result = messageMapper.updateAssistantById(currentMessageId, realPrompt, cosUrl);
