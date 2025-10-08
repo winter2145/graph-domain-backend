@@ -33,7 +33,7 @@ public class DashScopeImageTest implements CommandLineRunner {
             
             ImageResponse resp = imageModel.call(imagePrompt);
             
-            // 添加详细的空值检查和错误处理
+            // 为空
             if (resp == null) {
                 System.err.println("图像生成失败: 响应对象为空");
                 return;
