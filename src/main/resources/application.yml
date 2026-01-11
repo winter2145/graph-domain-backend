@@ -76,6 +76,14 @@ spring:
 #    region: ${COS_REGION:ap-beijing}  # 存储桶所在地域
 #    bucket: ${COS_BUCKET:your_bucket_name}  # 存储桶名称
 #
+
+## Cloudflare 配置
+#cloudflare:
+#  ai:
+#    api-token: ${CLOUDFLARE_API_TOKEN:your_token}
+#    account-id: ${CLOUDFLARE_ACCOUNT_ID:your_id}
+#    model: "@cf/stabilityai/stable-diffusion-xl-base-1.0"   # 模型名称
+
 ## 接口文档配置
 #knife4j:
 #  enable: true
