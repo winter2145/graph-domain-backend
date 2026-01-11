@@ -6,14 +6,20 @@ import com.xin.graphdomainbackend.aidraw.dao.entity.AiChatMessage;
 import com.xin.graphdomainbackend.aidraw.dao.entity.AiChatSession;
 import com.xin.graphdomainbackend.aidraw.dao.mapper.AiChatMessageMapper;
 import com.xin.graphdomainbackend.aidraw.dao.mapper.AiChatSessionMapper;
+import com.xin.graphdomainbackend.infrastructure.ai.client.CloudflareAiClient;
+import com.xin.graphdomainbackend.infrastructure.ai.client.CloudflarePromptOptimizeClient;
+import com.xin.graphdomainbackend.infrastructure.ai.client.PromptOptimizeClient;
 import com.xin.graphdomainbackend.infrastructure.ai.constant.AiConstant;
 import com.xin.graphdomainbackend.infrastructure.ai.service.AiDrawingService;
 import com.xin.graphdomainbackend.infrastructure.cos.model.UploadPictureResult;
+import com.xin.graphdomainbackend.infrastructure.cos.upload.ByteArrayPictureUpload;
 import com.xin.graphdomainbackend.infrastructure.cos.upload.PictureUploadTemplate;
 import com.xin.graphdomainbackend.infrastructure.cos.upload.UrlPictureUpload;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.image.ImageModel;
 import org.springframework.ai.image.ImagePrompt;
 import org.springframework.ai.image.ImageResponse;
@@ -42,6 +48,15 @@ public class AiDrawingServiceImpl implements AiDrawingService {
 
     @Resource
     private AiChatMessageMapper messageMapper;
+
+    @Resource
+    private CloudflareAiClient cloudflareAiClient;
+
+    @Resource
+    private ByteArrayPictureUpload byteArrayPictureUpload;
+
+    @Resource
+    private CloudflarePromptOptimizeClient cfPromptOptimizeClient; // 注入抽象接口
 
 
     @Override
@@ -92,16 +107,22 @@ public class AiDrawingServiceImpl implements AiDrawingService {
         int lastN = 6;
 
         // 1. 使用 ChatClient 优化 Prompt（带 memory + logger advisor）
-        String optimized = chatClient.prompt()
-                .system(AiConstant.PROMPT)
-                // .advisors(a -> a
-                //         .param("chat_memory_conversation_id", conversationId)
-                //         .param("chat_memory_last_n", lastN)
-                // )
-                .messages(chatMemory.get(conversationId, lastN))
-                .user(prompt)
-                .call()
-                .content();
+        // String optimized = chatClient.prompt()
+        //         .system(AiConstant.PROMPT)
+        //         .messages(chatMemory.get(conversationId, lastN))
+        //         .user(prompt)
+        //         .call()
+        //         .content();
+
+        String optimized = cfPromptOptimizeClient.optimize(
+                AiConstant.PROMPT,
+                chatMemory.get(conversationId, 6),
+                prompt
+        );
+
+        // 手动存入 ChatMemory (因为没有用原生的 ChatClient 链路)
+        chatMemory.add(conversationId, new UserMessage(prompt));
+        chatMemory.add(conversationId, new AssistantMessage(optimized));
 
         // 保存优化后的信息
         saveAssistantMessage(sessionId, optimized, roundId);
@@ -136,25 +157,40 @@ public class AiDrawingServiceImpl implements AiDrawingService {
         AiChatMessage aiChatMessage = list.getFirst();
         Long currentMessageId = aiChatMessage.getId();
 
-        // 2. 调用 ImageModel 生成图片
+/*        // 2. 调用 ImageModel 生成图片
         ImagePrompt imagePrompt = new ImagePrompt(realPrompt,
                 DashScopeImageOptions
                         .builder()
                         .withModel("qwen-image-plus")
-                        .withN(1).build());
+                        .withN(1).build());*/
 
-        ImageResponse resp = imageModel.call(imagePrompt);
+        // 调用CloudflareAi生成图片,它会返回二进制
+        byte[] imageBytes  = cloudflareAiClient.generateImage(realPrompt)
+                .doOnError(e -> {
+                    throw new RuntimeException("图像生成失败：" + e.getMessage());
+                })
+                .block();
+
+
+/*        ImageResponse resp = imageModel.call(imagePrompt);
         if (resp == null || resp.getResults() == null || resp.getResults().isEmpty()) {
             throw new RuntimeException("图像生成失败：没有返回结果");
         }
+
         String tmpImageUrl = resp.getResults().getFirst().getOutput().getUrl();
+        */
+
+        if (imageBytes == null || imageBytes.length == 0) {
+            throw new RuntimeException("图像生成失败：Cloudflare 返回数据为空");
+        }
 
         // 3. 上传到 COS
         String uploadPathPrefix = "ai-drawings/" + userId + "/" + sessionId + "/";
 
         // 上传图片得到图片信息
-        PictureUploadTemplate pictureUploadTemplate = urlPictureUpload;
-        UploadPictureResult uploadPictureResult = pictureUploadTemplate.uploadPictureResult(tmpImageUrl, uploadPathPrefix);
+        // UploadPictureResult uploadPictureResult = urlPictureUpload.uploadPictureResult(tmpImageUrl, uploadPathPrefix);
+        UploadPictureResult uploadPictureResult = byteArrayPictureUpload.uploadPictureResult(imageBytes, uploadPathPrefix);
+
         String cosUrl = uploadPictureResult.getWebpUrl().isEmpty() ?
                 uploadPictureResult.getUrl() : uploadPictureResult.getWebpUrl();
 

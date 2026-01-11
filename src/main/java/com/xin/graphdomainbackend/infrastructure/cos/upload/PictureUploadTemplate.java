@@ -90,7 +90,7 @@ public abstract class PictureUploadTemplate {
             return getUploadPictureResult(originalFilename, uploadPath, file, imageInfo);
 
         } catch (Exception e) {
-            log.error("图片上传失败");
+            log.error("图片上传失败，uploadPath={}, 原因={}", uploadPath, e.getMessage(), e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败");
         } finally {
             this.deleteTempFile(file);
