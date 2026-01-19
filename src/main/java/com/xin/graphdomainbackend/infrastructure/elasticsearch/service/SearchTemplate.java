@@ -9,6 +9,7 @@ import com.xin.graphdomainbackend.search.api.dto.request.SearchRequest;
 import com.xin.graphdomainbackend.search.service.HotSearchService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
@@ -22,7 +23,8 @@ import java.util.List;
 @Slf4j
 public abstract class SearchTemplate<T> {
 
-    @Resource
+    // @Resource
+    @Autowired(required = false)
     protected ElasticsearchOperations elasticsearchOperations;;
 
     @Resource
@@ -65,6 +67,13 @@ public abstract class SearchTemplate<T> {
      * @return 搜索结果
      */
     protected SearchHits<?> executeSearch(Query query) {
+
+        if(elasticsearchOperations == null) {
+            throw new BusinessException(
+                    ErrorCode.SYSTEM_ERROR,
+                    "搜索服务暂不可用"
+            );
+        }
 
         return elasticsearchOperations.search(
                 query,

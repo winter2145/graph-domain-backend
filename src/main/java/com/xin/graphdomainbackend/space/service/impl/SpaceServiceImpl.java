@@ -35,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,7 +57,7 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     @Resource
     private UserService userService;
 
-    @Resource
+    @Autowired(required = false)
     private EsSpaceDao esSpaceDao;
 
     @Resource
@@ -141,9 +142,15 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
             }
 
             // 数据同步到ES
-            Space dbSpace = this.getById(space.getId());
-            EsSpace esSpace = ConvertObjectUtils.toEsSpace(dbSpace);
-            esSpaceDao.save(esSpace);
+            if(esSpaceDao != null) {
+                try{
+                    Space dbSpace = this.getById(space.getId());
+                    EsSpace esSpace = ConvertObjectUtils.toEsSpace(dbSpace);
+                    esSpaceDao.save(esSpace);
+                } catch (Exception e) {
+                    log.warn("ES 同步失败，已忽略，spaceId={}", space.getId(), e);
+                }
+            }
 
             // 创建分表(学习用，非必要不用)
             // dynamicShardingManager.createSpacePictureTable(space);
@@ -214,12 +221,14 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         boolean result = this.removeById(spaceId);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
 
-        // 从ES删除
-        try {
-            esSpaceDao.deleteById(spaceId);
-        } catch (Exception e) {
-            log.error("Delete picture from ES failed, spaceId: {}", spaceId, e);
-            throw new RuntimeException("ES 删除失败", e); // 关键点
+        if(esSpaceDao != null) {
+            // 从ES删除
+            try {
+                esSpaceDao.deleteById(spaceId);
+            } catch (Exception e) {
+                log.error("Delete picture from ES failed, spaceId: {}", spaceId, e);
+                throw new RuntimeException("ES 删除失败", e); // 关键点
+            }
         }
 
         return true;
@@ -238,13 +247,15 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         boolean result = this.removeBatchByIds(ids);
 
         if (result) {
-            // 批量删除ES数据
-            try {
-                esSpaceDao.deleteAllById(ids);
-            } catch (Exception e) {
-                log.error("ES 批量删除失败，ids: {}", ids, e);
-                throw new RuntimeException("ES 删除失败", e); // 关键点
+            if(esSpaceDao != null) {
+                // 批量删除ES数据
+                try {
+                    esSpaceDao.deleteAllById(ids);
+                } catch (Exception e) {
+                    log.error("ES 批量删除失败，ids: {}", ids, e);
+                }
             }
+
         }
         return result;
     }
@@ -276,14 +287,17 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         boolean result = this.updateById(oldSpace);
         // 更新ES
         if (result) {
-            // 取db中最新的space 转换为 ES实体
-            Space dbSpace = this.getById(spaceId);
-            EsSpace esSpace = ConvertObjectUtils.toEsSpace(dbSpace);
-            try {
-                esSpaceDao.save(esSpace);
-            } catch (Exception e) {
-                log.error("ES 更新失败，spaceId: {}", spaceId, e);
-                throw new RuntimeException("ES 更新失败", e); // 关键点
+            // 更新ES
+            if(esSpaceDao != null) {
+                // 取db中最新的space 转换为 ES实体
+                Space dbSpace = this.getById(spaceId);
+                EsSpace esSpace = ConvertObjectUtils.toEsSpace(dbSpace);
+                try {
+                    esSpaceDao.save(esSpace);
+                } catch (Exception e) {
+                    log.error("ES 更新失败，spaceId: {}", spaceId, e);
+                    throw new RuntimeException("ES 更新失败", e); // 关键点
+                }
             }
         }
 
@@ -478,7 +492,7 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
             boolean ok = this.updateById(dbSpace);
 
             // 更新ES
-            if (ok) {
+            if (ok && esSpaceDao != null) {
                 EsSpace esSpace = ConvertObjectUtils.toEsSpace(dbSpace);
                 try{
                     esSpaceDao.save(esSpace);

@@ -53,6 +53,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -95,7 +96,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     @Resource
     private SpaceService spaceService;
 
-    @Resource
+    @Autowired(required = false)
     private EsPictureDao esPictureDao;
 
     @Resource
@@ -892,13 +893,16 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                 ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "额度更新失败");
             }
 
-            // 从ES删除
-            try {
-                esPictureDao.deleteById(pictureId);
-            } catch (Exception e) {
-                log.error("Delete picture from ES failed, pictureId: {}", pictureId, e);
-                throw new RuntimeException("ES 删除失败", e); // 关键点
+            if(esPictureDao != null) {
+                // 从ES删除
+                try {
+                    esPictureDao.deleteById(pictureId);
+                } catch (Exception e) {
+                    log.error("Delete picture from ES failed, pictureId: {}", pictureId, e);
+                    throw new RuntimeException("ES 删除失败", e); // 关键点
+                }
             }
+
             return true;
         });
 
@@ -1193,7 +1197,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
             // 删除数据库对象
             boolean deleteResult = this.removeBatchByIds(existPictureIds);
-            if (deleteResult) {
+            if (deleteResult && esPictureDao != null) {
                 // 删除ES对象
                 esPictureDao.deleteAllById(existPictureIds);
             }

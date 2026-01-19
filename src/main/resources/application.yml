@@ -1,6 +1,13 @@
 spring:
   profiles:
     active: dev
+    # none时不包含 es，但修改为es时才会启用
+    include: none
+  # 排除ES 自动配置
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration
 
 # 以下内容是application-dev.yml, 含有your_需要配置成自己的账号和密码
 #server:
