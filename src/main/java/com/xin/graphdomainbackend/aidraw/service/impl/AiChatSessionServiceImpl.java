@@ -8,11 +8,15 @@ import com.xin.graphdomainbackend.aidraw.api.dto.request.AiDrawQueryRequest;
 import com.xin.graphdomainbackend.aidraw.api.dto.vo.AiChatSessionVO;
 import com.xin.graphdomainbackend.aidraw.dao.entity.AiChatSession;
 import com.xin.graphdomainbackend.aidraw.dao.mapper.AiChatSessionMapper;
+import com.xin.graphdomainbackend.aidraw.service.AiChatMessageService;
 import com.xin.graphdomainbackend.aidraw.service.AiChatSessionService;
 import com.xin.graphdomainbackend.common.exception.BusinessException;
 import com.xin.graphdomainbackend.common.exception.ErrorCode;
 import com.xin.graphdomainbackend.common.util.ThrowUtils;
+import jakarta.annotation.Resource;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +29,10 @@ import java.util.List;
 @Service
 public class AiChatSessionServiceImpl extends ServiceImpl<AiChatSessionMapper, AiChatSession>
     implements AiChatSessionService {
+
+    @Resource
+    @Lazy
+    private AiChatMessageService aiChatMessageService;
 
     @Override
     public Long createSession(String userId, String title) {
@@ -90,6 +98,20 @@ public class AiChatSessionServiceImpl extends ServiceImpl<AiChatSessionMapper, A
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"sessionId 不能小于等于0");
         }
         return this.baseMapper.updateTitle(sessionId, title);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean deleteSession(Long sessionId) {
+        ThrowUtils.throwIf(sessionId <= 0, ErrorCode.PARAMS_ERROR);
+
+        // 删除内容
+        long deletedCount  = aiChatMessageService.deleteSessionHistory(sessionId);
+        // 2. 删主表
+        int affected = baseMapper.deleteById(sessionId);
+        ThrowUtils.throwIf(affected == 0, ErrorCode.NOT_FOUND_ERROR, "会话不存在");
+
+        return true;
     }
 }
 

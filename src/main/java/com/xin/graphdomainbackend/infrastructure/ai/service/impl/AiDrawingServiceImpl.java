@@ -61,7 +61,7 @@ public class AiDrawingServiceImpl implements AiDrawingService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long saveUserMessage(String userId, Long sessionId, String userInput) {
+    public Long getRoundId(String userId, Long sessionId, String userInput) {
         // 鉴权
         LambdaQueryWrapper<AiChatSession> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(AiChatSession::getId, sessionId).eq(AiChatSession::getUserId, userId);
@@ -82,17 +82,17 @@ public class AiDrawingServiceImpl implements AiDrawingService {
             currentRoundId += 1;
         }
 
-        // 存用户消息
-        try {
-            AiChatMessage userMsg = new AiChatMessage();
-            userMsg.setSessionId(sessionId);
-            userMsg.setRoundId(currentRoundId);
-            userMsg.setRole(AiConstant.USER_ROLE);
-            userMsg.setContent(userInput);
-            messageMapper.insert(userMsg);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        // // 存用户消息
+        // try {
+        //     AiChatMessage userMsg = new AiChatMessage();
+        //     userMsg.setSessionId(sessionId);
+        //     userMsg.setRoundId(currentRoundId);
+        //     userMsg.setRole(AiConstant.USER_ROLE);
+        //     userMsg.setContent(userInput);
+        //     messageMapper.insert(userMsg);
+        // } catch (Exception e) {
+        //     throw new RuntimeException(e);
+        // }
 
         return currentRoundId; // 返回当前使用的roundId
     }
@@ -125,7 +125,7 @@ public class AiDrawingServiceImpl implements AiDrawingService {
         chatMemory.add(conversationId, new AssistantMessage(optimized));
 
         // 保存优化后的信息
-        saveAssistantMessage(sessionId, optimized, roundId);
+        // saveAssistantMessage(sessionId, optimized, roundId);
 
         return optimized;   // 前端拿到先展示，等待用户确认
     }

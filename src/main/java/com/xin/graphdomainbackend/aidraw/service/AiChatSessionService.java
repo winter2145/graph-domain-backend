@@ -37,4 +37,8 @@ public interface AiChatSessionService extends IService<AiChatSession> {
     Boolean updateSessionTitle(Long sessionId, String title);
 
 
+    /**
+     * 删除对话
+     */
+    Boolean deleteSession(Long sessionId);
 }
