@@ -57,8 +57,8 @@ public class AiDrawController {
         String userId = req.getUserId();
         String prompt = req.getPrompt();
 
-        // 1. 存用户消息，并返回轮次ID
-        Long roundId = drawingService.saveUserMessage(userId, sessionId, prompt);
+        // 1. 返回轮次ID
+        Long roundId = drawingService.getRoundId(userId, sessionId, prompt);
         aiGenerateImageVO.setRole(AiConstant.USER_ROLE);
 
         // 2. AI 优化提示词
@@ -120,5 +120,14 @@ public class AiDrawController {
     @LoginCheck
     public BaseResponse<Boolean> updateSessionTitle(@PathVariable Long sessionId, @RequestParam String title) {
         return ResultUtils.success(sessionService.updateSessionTitle(sessionId, title));
+    }
+
+    /**
+     * 删除 对话
+     */
+    @PostMapping("/delete/{sessionId}")
+    @LoginCheck
+    public BaseResponse<Boolean> deleteSession(@PathVariable Long sessionId) {
+        return ResultUtils.success(sessionService.deleteSession(sessionId));
     }
 }

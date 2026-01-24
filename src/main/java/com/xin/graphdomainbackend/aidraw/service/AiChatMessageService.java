@@ -24,4 +24,9 @@ public interface AiChatMessageService extends IService<AiChatMessage> {
      * 分页获取某用户的会话列表（按时间升序）
      */
     Page<AiChatMessageVO> getSessionsHistoryByPage(AiDrawQueryRequest aiDrawQueryRequest);
+
+    /**
+     * 删除历史会话
+     */
+    long deleteSessionHistory(Long sessionId);
 }

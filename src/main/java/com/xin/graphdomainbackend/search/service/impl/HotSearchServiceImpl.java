@@ -14,6 +14,8 @@ import com.xin.graphdomainbackend.search.dao.entity.HotSearch;
 import com.xin.graphdomainbackend.search.dao.mapper.HotSearchMapper;
 import com.xin.graphdomainbackend.search.service.HotSearchService;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -32,10 +34,11 @@ import java.util.concurrent.TimeUnit;
 * @createDate 2025-09-06 09:30:40
 */
 @Service
+@Slf4j
 public class HotSearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch>
     implements HotSearchService {
 
-    @Resource
+    @Autowired(required = false)
     private EsSearchKeyDao esSearchKeyDao;
 
     @Resource
@@ -100,44 +103,44 @@ public class HotSearchServiceImpl extends ServiceImpl<HotSearchMapper, HotSearch
         ThrowUtils.throwIf(type.isBlank(), ErrorCode.PARAMS_ERROR, "搜索类型不能为空");
 
 
-        // 获取ES是否存在对象数据
-        List<EsSearchKeyword> esList  = esSearchKeyDao.findByTypeAndKeyword(type, searchText);
-
-        if (CollectionUtils.isEmpty(esList)) {
-
-            // 保存 MySQL
-            HotSearch newHot = new HotSearch();
-            newHot.setKeyword(searchText);
-            newHot.setType(type);
-            newHot.setCount(1L);
-            newHot.setCreateTime(new Date());
-            newHot.setLastUpdateTime(new Date());
-            this.save(newHot);
-
-            // ES中没有记录 -> 写 ES
-            EsSearchKeyword newEs = new EsSearchKeyword();
-            newEs.setId(newHot.getId()); // 用 MySQL 生成的 id 作为 ES 的 id, 强制保持一致
-            newEs.setKeyword(searchText);
-            newEs.setType(type);
-            esSearchKeyDao.save(newEs);
+        // 查询数据库是否存在关键词
+        HotSearch hot = lambdaQuery()
+                .eq(HotSearch::getKeyword, searchText)
+                .eq(HotSearch::getType, type)
+                .one();
+        if(hot == null) {
+            // 新关键词
+            hot = new HotSearch();
+            hot.setKeyword(searchText);
+            hot.setType(type);
+            hot.setCount(1L);
+            hot.setCreateTime(new Date());
+            hot.setLastUpdateTime(new Date());
+            this.save(hot);
         } else {
-            // ES 已存在 -> 拿主键
-            Long esId = esList.get(0).getId();
-            HotSearch hot = lambdaQuery()
-                    .eq(HotSearch::getId, esId)
-                    .one();
-            if (hot != null) {
-                // 5. 原子 +1（乐观锁防并发）
-                boolean success = lambdaUpdate()
-                        .set(HotSearch::getCount, hot.getCount() + 1)
-                        .set(HotSearch::getLastUpdateTime, new Date())
-                        .eq(HotSearch::getId, hot.getId())
-                        .eq(HotSearch::getCount, hot.getCount()) // 乐观锁
-                        .update();
-                if (!success) {
-                    // 版本冲突，简单重试一次即可（也可抛异常由上层重试）
-                    recordSearchKeyword(searchText, type);
-                }
+            boolean success = lambdaUpdate()
+                    .set(HotSearch::getCount, hot.getCount() + 1)
+                    .set(HotSearch::getLastUpdateTime, new Date())
+                    .eq(HotSearch::getId, hot.getId())
+                    .eq(HotSearch::getCount, hot.getCount())
+                    .update();
+
+            if (!success) {
+                recordSearchKeyword(searchText, type);
+                return;
+            }
+        }
+
+        // ES 同步
+        if (esSearchKeyDao != null) {
+            try {
+                EsSearchKeyword es = new EsSearchKeyword();
+                es.setId(hot.getId());
+                es.setKeyword(hot.getKeyword());
+                es.setType(hot.getType());
+                esSearchKeyDao.save(es);
+            } catch (Exception e) {
+                log.warn("ES 同步失败，已忽略，keyword={}", searchText, e);
             }
         }
     }

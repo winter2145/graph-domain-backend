@@ -12,6 +12,7 @@ import com.xin.graphdomainbackend.aidraw.service.AiChatMessageService;
 import com.xin.graphdomainbackend.common.exception.ErrorCode;
 import com.xin.graphdomainbackend.common.util.ThrowUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
@@ -76,6 +77,17 @@ public class AiChatMessageServiceImpl extends ServiceImpl<AiChatMessageMapper, A
         }).toList());
 
         return aiChatMessageVOPage;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public long deleteSessionHistory(Long sessionId) {
+        ThrowUtils.throwIf(sessionId == null, ErrorCode.PARAMS_ERROR);
+        LambdaQueryWrapper<AiChatMessage> queryWrapper = new LambdaQueryWrapper<AiChatMessage>()
+                .eq(AiChatMessage::getSessionId, sessionId);
+
+        // 返回删除的实际行数
+       return this.baseMapper.delete(queryWrapper);
     }
 }
 

@@ -1,0 +1,8 @@
+spring:
+  # ES 配置
+  elasticsearch:
+    connection-timeout: 50000
+    uris: ${ES_URIS:http://localhost:9200}
+    socket-timeout: 60000
+    username: ${ES_USERNAME:}  # 可选，没配置就是空
+    password: ${ES_PASSWORD:}  # 可选，没配置就是空

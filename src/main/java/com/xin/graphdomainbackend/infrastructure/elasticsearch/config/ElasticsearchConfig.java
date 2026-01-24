@@ -4,6 +4,8 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.xin.graphdomainbackend.common.exception.BusinessException;
+import com.xin.graphdomainbackend.common.exception.ErrorCode;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpHost;
@@ -17,6 +19,10 @@ import org.elasticsearch.client.RestClientBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
@@ -25,7 +31,11 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Configuration
+@Profile("es")
 @EnableScheduling
+@EnableElasticsearchRepositories(
+        basePackages = "com.xin.graphdomainbackend.infrastructure.elasticsearch.dao"
+)
 public class ElasticsearchConfig {
 
     @Value("${spring.elasticsearch.uris}")
@@ -53,7 +63,7 @@ public class ElasticsearchConfig {
     /* ---------- 主 Bean：ElasticsearchClient ---------- */
     @Bean
     public ElasticsearchClient elasticsearchClient() {
-        try {
+
             /* 1. 解析 URI */
             String cleanUri = uris.replace("https://", "").replace("http://", "");
             String[] parts  = cleanUri.split(":");
@@ -74,10 +84,10 @@ public class ElasticsearchConfig {
                     new RestClientTransport(restClient, new JacksonJsonpMapper());
             client = new ElasticsearchClient(transport);
             return client;
-        } catch (Exception e) {
-            log.error("创建 ElasticsearchClient 失败", e);
-            throw new RuntimeException("无法创建 ElasticsearchClient", e);
-        }
+    }
+    @Bean
+    public ElasticsearchOperations elasticsearchTemplate(ElasticsearchClient client) {
+        return new ElasticsearchTemplate(client);
     }
 
     /* ---------- 连接池 / 认证 ---------- */
@@ -96,6 +106,10 @@ public class ElasticsearchConfig {
     /* ---------- 定时探活 ---------- */
     @Scheduled(fixedRate = 30_000)
     public void checkOut() {
+        if (client == null) {
+            return;
+        }
+
         try {
             boolean ok = client.ping().value();
             if (!ok) {

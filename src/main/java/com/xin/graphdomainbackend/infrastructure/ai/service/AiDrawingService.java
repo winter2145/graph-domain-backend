@@ -1,16 +1,11 @@
 package com.xin.graphdomainbackend.infrastructure.ai.service;
 
-import com.xin.graphdomainbackend.aidraw.api.dto.vo.AiChatMessageVO;
-import com.xin.graphdomainbackend.aidraw.api.dto.vo.AiChatSessionVO;
-
-import java.util.List;
-
 public interface AiDrawingService {
 
     /**
-     * 保存用户输入
+     * 获取会话轮次
      */
-    Long saveUserMessage(String userId, Long sessionId, String userInput);
+    Long getRoundId(String userId, Long sessionId, String userInput);
 
     /**
      * 优化 工程提示词

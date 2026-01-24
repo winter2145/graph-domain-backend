@@ -37,6 +37,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -70,7 +71,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Resource
     private FilePictureUpload filePictureUpload;
 
-    @Resource
+    // @Resource
+    @Autowired(required = false)
     private EsUserDao esUserDao;
 
     /**
@@ -203,13 +205,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             stringRedisTemplate.delete(verifyCodeKey);
 
             // 数据同步到ES
-            EsUser esUser = ConvertObjectUtils.toEsUser(user);
-            esUserDao.save(esUser);
+            if (esUserDao != null) {
+                try {
+                    EsUser esUser = ConvertObjectUtils.toEsUser(user);
+                    esUserDao.save(esUser);
+                } catch (Exception e) {
+                    log.error("用户注册同步 ES 失败 userId={}", user.getId(), e);
+                }
+            }
 
             return user.getId();
-        } catch (BusinessException e) {
-            // 保留原始业务异常信息
-            throw e;
         } catch (Exception e) {
             log.error("doCacheRegisterUser error", e);
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "系统异常，请稍后再试");
@@ -447,9 +452,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
 
         // 3. 数据库更新成功后，再同步到 ES
-        User dbUser = this.getById(userUpdateRequest.getId()); // 确保取最新数据
-        EsUser esUser = ConvertObjectUtils.toEsUser(dbUser);
-        esUserDao.save(esUser);
+        if (esUserDao != null) {
+            try {
+                User dbUser = this.getById(userUpdateRequest.getId()); // 确保取最新数据
+                EsUser esUser = ConvertObjectUtils.toEsUser(dbUser);
+                esUserDao.save(esUser);
+            } catch (Exception e) {
+                log.error("用户注册同步 ES 失败 userId={}", userUpdateRequest.getId(), e);
+            }
+        }
 
         return true;
     }
@@ -568,10 +579,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         boolean result = this.updateById(user);
 
         if (result) {
-            // 更新ES
-            EsUser esUser = new EsUser();
-            BeanUtil.copyProperties(user, esUser);
-            esUserDao.save(esUser);
+            if(esUserDao != null) {
+                // 更新ES
+                EsUser esUser = new EsUser();
+                BeanUtil.copyProperties(user, esUser);
+                esUserDao.save(esUser);
+            }
         }
 
         return user.getUserAvatar();

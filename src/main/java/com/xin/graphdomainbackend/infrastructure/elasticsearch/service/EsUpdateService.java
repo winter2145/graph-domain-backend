@@ -8,12 +8,9 @@ import com.xin.graphdomainbackend.picture.dao.entity.Picture;
 import com.xin.graphdomainbackend.picture.service.PictureService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Recover;
-import org.springframework.retry.annotation.Retryable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,81 +19,101 @@ import java.util.stream.Collectors;
 @Slf4j
 public class EsUpdateService {
 
-    @Resource
+    /**
+     * ES DAO：可选依赖
+     */
+    @Autowired(required = false)
     private EsPictureDao esPictureDao;
 
     @Resource
-    private PictureService pictureService; // 获取数据库最新数据
+    private PictureService pictureService;
 
+    /**
+     * 单条图片同步到 ES
+     */
     @Async("asyncExecutor")
-    @Retryable(
-            value = Exception.class,
-            maxAttempts = 1,
-            backoff = @Backoff(delay = 1000, multiplier = 1)
-    )
     public void updatePictureEs(Long pictureId) {
-        try {
-            Picture dbPicture = pictureService.getById(pictureId);
-            EsPicture esPicture = ConvertObjectUtils.toEsPicture(dbPicture);
-            log.info("开始更新 ES 数据，pictureId={}", pictureId);
-            esPictureDao.save(esPicture);
-            log.info("ES 更新完成，pictureId={}", pictureId);
-        } catch (Exception e) {
-            log.error("保存Es图片信息失败：" + e.getMessage());
-        }
-    }
 
-    @Async("asyncExecutor")
-    @Retryable(
-            value = {Exception.class},
-            maxAttempts = 1,
-            backoff = @Backoff(delay = 1000, multiplier = 1)
-    )
-    public void batchUpdatePictureEs(List<Long> pictureIds) {
-        List<Picture> pictureList = pictureService.listByIds(pictureIds);
-        if (CollUtil.isEmpty(pictureList)) {
+        // ES 未启用，直接跳过
+        if (esPictureDao == null) {
+            log.warn("ES 未启用，跳过图片 ES 同步，pictureId={}", pictureId);
             return;
         }
-        // 批量转换
-        List<EsPicture> esPictures = pictureList.stream()
-                .map(ConvertObjectUtils::toEsPicture)
-                .collect(Collectors.toList());
 
-        // 使用 ElasticsearchRepository 的 saveAll 方法
-        log.info("开始更新 ES 数据，esPictures={}", esPictures);
-        esPictureDao.saveAll(esPictures);
-        log.info("ES 更新完成，esPictures={}", esPictures);
-    }
-
-    @Async("asyncExecutor")
-    @Retryable(
-            value = Exception.class,
-            maxAttempts = 1,
-            backoff = @Backoff(delay = 1000, multiplier = 1)
-    )
-    public void updateSearchKeyEs(Long pictureId) {
         try {
             Picture dbPicture = pictureService.getById(pictureId);
+            if (dbPicture == null) {
+                log.warn("图片不存在，跳过 ES 同步，pictureId={}", pictureId);
+                return;
+            }
+
             EsPicture esPicture = ConvertObjectUtils.toEsPicture(dbPicture);
-            log.info("开始更新 ES 数据，pictureId={}", pictureId);
             esPictureDao.save(esPicture);
-            log.info("ES 更新完成，pictureId={}", pictureId);
+
+            log.info("图片同步 ES 成功，pictureId={}", pictureId);
+
         } catch (Exception e) {
-            log.error("保存Es图片信息失败：" + e.getMessage());
+            // 吃掉异常，避免异步线程反复失败
+            log.error("图片同步 ES 失败，pictureId={}", pictureId, e);
         }
     }
 
-    @Recover
-    public void recover(Exception e, Object target) {
-        if (target instanceof Long) {
-            Long Id = (Long) target;
-            log.error("ES更新重试全部失败，Id: {}", Id, e);
-        } else if (target instanceof List) {
-            @SuppressWarnings("unchecked")
-            List<Long> Ids = (List<Long>) target;
-            log.error("ES批量更新重试全部失败，Ids: {}", Ids, e);
-        } else {
-            log.error("ES更新重试全部失败，未知目标类型: {}", target, e);
+    /**
+     * 批量图片同步到 ES
+     */
+    @Async("asyncExecutor")
+    public void batchUpdatePictureEs(List<Long> pictureIds) {
+
+        // ES 未启用，直接跳过
+        if (esPictureDao == null) {
+            log.warn("ES 未启用，跳过批量图片 ES 同步，pictureIds={}", pictureIds);
+            return;
+        }
+
+        try {
+            List<Picture> pictureList = pictureService.listByIds(pictureIds);
+            if (CollUtil.isEmpty(pictureList)) {
+                return;
+            }
+
+            List<EsPicture> esPictures = pictureList.stream()
+                    .map(ConvertObjectUtils::toEsPicture)
+                    .collect(Collectors.toList());
+
+            esPictureDao.saveAll(esPictures);
+
+            log.info("批量图片同步 ES 成功，count={}", esPictures.size());
+
+        } catch (Exception e) {
+            log.error("批量图片同步 ES 失败，pictureIds={}", pictureIds, e);
+        }
+    }
+
+    /**
+     * 搜索关键词相关的 ES 更新
+     */
+    @Async("asyncExecutor")
+    public void updateSearchKeyEs(Long pictureId) {
+
+        // ES 未启用，直接跳过
+        if (esPictureDao == null) {
+            log.warn("ES 未启用，跳过搜索关键词 ES 同步，pictureId={}", pictureId);
+            return;
+        }
+
+        try {
+            Picture dbPicture = pictureService.getById(pictureId);
+            if (dbPicture == null) {
+                return;
+            }
+
+            EsPicture esPicture = ConvertObjectUtils.toEsPicture(dbPicture);
+            esPictureDao.save(esPicture);
+
+            log.info("搜索关键词 ES 更新成功，pictureId={}", pictureId);
+
+        } catch (Exception e) {
+            log.error("搜索关键词 ES 更新失败，pictureId={}", pictureId, e);
         }
     }
 }
