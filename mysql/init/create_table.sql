@@ -255,7 +255,7 @@ CREATE TABLE like_record
     targetId      bigint                               NOT NULL COMMENT '被点赞内容的ID',
     targetType    tinyint                              NOT NULL COMMENT '内容类型：1-图片 2-帖子 3-空间',
     targetUserId  bigint                               NOT NULL COMMENT '被点赞内容所属用户ID',
-    isLiked       tinyint(1)                           NOT NULL COMMENT '是否点赞',
+    likeStatus    tinyint(1)                           NOT NULL COMMENT '是否点赞',
     firstLikeTime datetime   DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '第一次点赞时间',
     lastLikeTime  datetime                             NOT NULL COMMENT '最近一次点赞时间',
     isRead        tinyint(1) DEFAULT 0                 NOT NULL COMMENT '是否已读（0-未读，1-已读）',
