@@ -8,12 +8,11 @@ import com.xin.graphdomainbackend.aidraw.dao.mapper.AiChatMessageMapper;
 import com.xin.graphdomainbackend.aidraw.dao.mapper.AiChatSessionMapper;
 import com.xin.graphdomainbackend.infrastructure.ai.client.CloudflareAiClient;
 import com.xin.graphdomainbackend.infrastructure.ai.client.CloudflarePromptOptimizeClient;
-import com.xin.graphdomainbackend.infrastructure.ai.client.PromptOptimizeClient;
 import com.xin.graphdomainbackend.infrastructure.ai.constant.AiConstant;
 import com.xin.graphdomainbackend.infrastructure.ai.service.AiDrawingService;
 import com.xin.graphdomainbackend.infrastructure.cos.model.UploadPictureResult;
+import com.xin.graphdomainbackend.infrastructure.cos.upload.Base64PictureUpload;
 import com.xin.graphdomainbackend.infrastructure.cos.upload.ByteArrayPictureUpload;
-import com.xin.graphdomainbackend.infrastructure.cos.upload.PictureUploadTemplate;
 import com.xin.graphdomainbackend.infrastructure.cos.upload.UrlPictureUpload;
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.client.ChatClient;
@@ -54,6 +53,9 @@ public class AiDrawingServiceImpl implements AiDrawingService {
 
     @Resource
     private ByteArrayPictureUpload byteArrayPictureUpload;
+
+    @Resource
+    private Base64PictureUpload base64PictureUpload;
 
     @Resource
     private CloudflarePromptOptimizeClient cfPromptOptimizeClient; // 注入抽象接口
@@ -157,28 +159,51 @@ public class AiDrawingServiceImpl implements AiDrawingService {
         AiChatMessage aiChatMessage = list.getFirst();
         Long currentMessageId = aiChatMessage.getId();
 
-/*        // 2. 调用 ImageModel 生成图片
-        ImagePrompt imagePrompt = new ImagePrompt(realPrompt,
-                DashScopeImageOptions
-                        .builder()
-                        .withModel("qwen-image-plus")
-                        .withN(1).build());*/
-
-        // 调用CloudflareAi生成图片,它会返回二进制
-        byte[] imageBytes  = cloudflareAiClient.generateImage(realPrompt)
+        String json = cloudflareAiClient.generateImageByBase64(realPrompt)
                 .doOnError(e -> {
                     throw new RuntimeException("图像生成失败：" + e.getMessage());
                 })
                 .block();
 
+        // 3. 上传到 COS
+        String uploadPathPrefix = "ai-drawings/" + userId + "/" + sessionId + "/";
 
-/*        ImageResponse resp = imageModel.call(imagePrompt);
-        if (resp == null || resp.getResults() == null || resp.getResults().isEmpty()) {
-            throw new RuntimeException("图像生成失败：没有返回结果");
+        // 上传图片得到图片信息
+        UploadPictureResult uploadPictureResult = base64PictureUpload.uploadPictureResult(json,uploadPathPrefix);
+
+        String cosUrl = uploadPictureResult.getWebpUrl().isEmpty() ?
+                uploadPictureResult.getUrl() : uploadPictureResult.getWebpUrl();
+
+        // 6. 更新 assistant 记录(把图片 URL、优化后的content)
+        Boolean result = messageMapper.updateAssistantById(currentMessageId, realPrompt, cosUrl);
+        if (!result) {
+            throw new RuntimeException("图片URL 更新数据库失败");
         }
 
-        String tmpImageUrl = resp.getResults().getFirst().getOutput().getUrl();
-        */
+        return cosUrl;
+    }
+
+    @Override
+    public String generateImageByStable(String userId, Long sessionId, String realPrompt) {
+        // 1. 取出最新一条 assistant 消息
+        List<AiChatMessage> list = messageMapper.selectList(
+                new LambdaQueryWrapper<AiChatMessage>()
+                        .eq(AiChatMessage::getSessionId, sessionId)
+                        .eq(AiChatMessage::getRole, AiConstant.ASSISTANT_ROLE)
+                        .orderByDesc(AiChatMessage::getCreateTime)
+                        .last("LIMIT 1"));
+        if (list.isEmpty()) {
+            throw new RuntimeException("请先发送绘图需求");
+        }
+        AiChatMessage aiChatMessage = list.getFirst();
+        Long currentMessageId = aiChatMessage.getId();
+
+        // 调用CloudflareAi生成图片,它会返回二进制
+        byte[] imageBytes  = cloudflareAiClient.generateImageByByte(realPrompt)
+                .doOnError(e -> {
+                    throw new RuntimeException("图像生成失败：" + e.getMessage());
+                })
+                .block();
 
         if (imageBytes == null || imageBytes.length == 0) {
             throw new RuntimeException("图像生成失败：Cloudflare 返回数据为空");
@@ -188,7 +213,6 @@ public class AiDrawingServiceImpl implements AiDrawingService {
         String uploadPathPrefix = "ai-drawings/" + userId + "/" + sessionId + "/";
 
         // 上传图片得到图片信息
-        // UploadPictureResult uploadPictureResult = urlPictureUpload.uploadPictureResult(tmpImageUrl, uploadPathPrefix);
         UploadPictureResult uploadPictureResult = byteArrayPictureUpload.uploadPictureResult(imageBytes, uploadPathPrefix);
 
         String cosUrl = uploadPictureResult.getWebpUrl().isEmpty() ?
@@ -201,6 +225,55 @@ public class AiDrawingServiceImpl implements AiDrawingService {
         }
 
         return cosUrl;
+    }
+
+    @Override
+    public String generateImageByAliyun(String userId, Long sessionId, String realPrompt) {
+        // 1. 取出最新一条 assistant 消息
+        List<AiChatMessage> list = messageMapper.selectList(
+                new LambdaQueryWrapper<AiChatMessage>()
+                        .eq(AiChatMessage::getSessionId, sessionId)
+                        .eq(AiChatMessage::getRole, AiConstant.ASSISTANT_ROLE)
+                        .orderByDesc(AiChatMessage::getCreateTime)
+                        .last("LIMIT 1"));
+        if (list.isEmpty()) {
+            throw new RuntimeException("请先发送绘图需求");
+        }
+        AiChatMessage aiChatMessage = list.getFirst();
+        Long currentMessageId = aiChatMessage.getId();
+
+        // 2. 调用 ImageModel 生成图片
+        ImagePrompt imagePrompt = new ImagePrompt(realPrompt,
+                DashScopeImageOptions
+                        .builder()
+                        .withModel("qwen-image-plus")
+                        .withN(1).build());
+
+        ImageResponse resp = imageModel.call(imagePrompt);
+        if (resp == null || resp.getResults() == null || resp.getResults().isEmpty()) {
+            throw new RuntimeException("图像生成失败：没有返回结果");
+        }
+
+        String tmpImageUrl = resp.getResults().getFirst().getOutput().getUrl();
+
+        // 3. 上传到 COS
+        String uploadPathPrefix = "ai-drawings/" + userId + "/" + sessionId + "/";
+
+        // 上传图片得到图片信息
+         UploadPictureResult uploadPictureResult = urlPictureUpload.uploadPictureResult(tmpImageUrl, uploadPathPrefix);
+
+
+        String cosUrl = uploadPictureResult.getWebpUrl().isEmpty() ?
+                uploadPictureResult.getUrl() : uploadPictureResult.getWebpUrl();
+
+        // 6. 更新 assistant 记录(把图片 URL、优化后的content)
+        Boolean result = messageMapper.updateAssistantById(currentMessageId, realPrompt, cosUrl);
+        if (!result) {
+            throw new RuntimeException("图片URL 更新数据库失败");
+        }
+
+        return cosUrl;
+
     }
 
     /**

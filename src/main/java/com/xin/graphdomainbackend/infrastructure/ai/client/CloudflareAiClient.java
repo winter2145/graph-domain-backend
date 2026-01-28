@@ -1,7 +1,7 @@
 package com.xin.graphdomainbackend.infrastructure.ai.client;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.xin.graphdomainbackend.infrastructure.ai.config.CloudflareAiClientConfig;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -31,7 +31,7 @@ public class CloudflareAiClient {
      * @param prompt  提示词
      * @return 二进制文件
      */
-    public Mono<byte[]> generateImage(String prompt) {
+    public Mono<byte[]> generateImageByByte(String prompt) {
 
         String path = String.format("/accounts/%s/ai/run/%s",
                 cfClientConfig.getAccountId(),
@@ -48,6 +48,39 @@ public class CloudflareAiClient {
                         })
                 )
                 .bodyToMono(byte[].class);
+    }
+
+    /**
+     * 调用 Cloudflare 图像大模型生成图片
+     * @param prompt  提示词
+     * @return 二进制文件
+     */
+    public Mono<String> generateImageByBase64(String prompt) {
+
+        String path = String.format("/accounts/%s/ai/run/%s",
+                cfClientConfig.getAccountId(),
+                cfClientConfig.getModel());
+
+        return webClient.post()
+                .uri(path)
+                .bodyValue(Map.of("prompt", prompt))
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, response ->
+                        response.bodyToMono(String.class).flatMap(errorBody -> {
+                            // 打印出 Cloudflare 返回的具体错误信息，方便排查 400 到底错在哪
+                            return Mono.error(new RuntimeException("CF API 调用失败，错误详情: " + errorBody));
+                        })
+                )
+                .bodyToMono(JsonNode.class)
+                .map(jsonNode -> {
+                    // 2. 解析 JSON，提取 result.image 字段
+                    if (jsonNode.has("result") && jsonNode.get("result").has("image")) {
+                        // 返回纯 Base64 字符串
+                        return jsonNode.get("result").get("image").asText();
+                    }
+                    // 如果没有找到 image 字段，抛出异常
+                    throw new RuntimeException("CF API 返回结果中未找到图片数据: " + jsonNode.toString());
+                });
     }
 
     /**

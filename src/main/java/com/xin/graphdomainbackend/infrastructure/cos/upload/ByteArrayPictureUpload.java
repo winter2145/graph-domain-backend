@@ -9,7 +9,7 @@ import java.nio.file.Files;
 import java.util.UUID;
 
 /**
- * 字节数组图片上传（用于 AI 生成图片上传）
+ * AI 生成图片上传实现类 (字节数组图片上传)
  */
 @Service
 public class ByteArrayPictureUpload extends PictureUploadTemplate{
@@ -26,7 +26,7 @@ public class ByteArrayPictureUpload extends PictureUploadTemplate{
     @Override
     protected String getOriginalFilename(Object inputSource) {
         // AI 生成的图片没有原始文件名，我们给它生成一个随机名
-        return UUID.randomUUID().toString() +  ".png";
+        return "Byte" + UUID.randomUUID().toString() +  ".png";
     }
 
     @Override
